@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { defaultLogsDir, readLogs, serverKey, type ServerLog } from "./logs.ts";
-import { readToolCalls, splitName, type ReadCounts } from "./transcripts.ts";
+import { readToolCalls, splitName, type ReadCounts } from "../transcripts.ts";
 
 const USAGE = `usage: mcp-faster stats [--since <days>] [--logs <dir>] [--transcripts <dir>] [--json]
 
@@ -139,7 +139,14 @@ export async function buildReport(opts: { logsDir: string; transcriptsDir: strin
     images += call.images;
     // Prefer the real duration from the MCP log: same session and tool, logged between use and result.
     const list = logs.get(server)?.completions.get(`${call.sessionId}|${raw.tool}`);
-    const i = list?.findIndex((c) => c.ts >= call.start - 1000 && c.ts <= call.end! + 1000) ?? -1;
+    // Take the log line closest to the result. With two calls of one tool running at once,
+    // "first line in the window" can hand the short call's line to the long call.
+    const end = call.end;
+    let i = -1;
+    list?.forEach((c, j) => {
+      if (c.ts < call.start - 1000 || c.ts > end + 1000) return;
+      if (i < 0 || Math.abs(c.ts - end) < Math.abs(list[i]!.ts - end)) i = j;
+    });
     if (list && i >= 0) {
       t.durations.push(list[i]!.ms);
       list.splice(i, 1); // one log line pays for one call

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { validateToolName } from "@modelcontextprotocol/sdk/shared/toolNameValidation.js";
 import { jsonText, type ArgSource, type Composite } from "./index.ts";
-import { readToolCalls, type ToolCall } from "./transcripts.ts";
+import { readToolCalls, type ToolCall } from "../transcripts.ts";
 
 const MIN_LEN = 2;
 const MAX_LEN = 4;
@@ -67,7 +67,8 @@ export async function main(argv: string[]): Promise<void> {
 interface Call {
   tool: string;
   input: Record<string, unknown>;
-  result?: ToolCall["result"];
+  /** Missing when the session ended before the result came back. */
+  result?: Pick<ToolCall, "content" | "structuredContent" | "isError">;
 }
 
 interface ArgEvidence {
@@ -104,11 +105,12 @@ export async function mine(
   let calls = 0;
   for await (const c of toolCalls) {
     if (!c.name.startsWith(prefix)) continue;
-    if (opts.since && !(Date.parse(c.timestamp ?? "") >= opts.since.getTime())) continue;
+    if (opts.since && c.start < opts.since.getTime()) continue;
     const input = c.input && typeof c.input === "object" && !Array.isArray(c.input) ? (c.input as Record<string, unknown>) : {};
-    let list = sessions.get(c.session);
-    if (!list) sessions.set(c.session, (list = []));
-    list.push({ tool: c.name.slice(prefix.length), input, result: c.result });
+    // One transcript file is one session. A subagent file counts as its own session.
+    let list = sessions.get(c.file);
+    if (!list) sessions.set(c.file, (list = []));
+    list.push({ tool: c.name.slice(prefix.length), input, result: c.end === undefined ? undefined : c });
     calls++;
   }
 

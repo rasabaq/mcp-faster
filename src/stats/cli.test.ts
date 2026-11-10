@@ -134,3 +134,26 @@ test("--since must be a positive number", async () => {
     process.exitCode = 0;
   }
 });
+
+test("two calls of one tool at the same time each get their own log line", async () => {
+  const root = mkdtempSync(join(tmpdir(), "stats-overlap-"));
+  const t = NOW - DAY;
+  const line = (o: object) => JSON.stringify({ sessionId: "s1", ...o });
+  mkdirSync(join(root, "logs", "-tmp-x", "mcp-logs-shop"), { recursive: true });
+  writeFileSync(
+    join(root, "logs", "-tmp-x", "mcp-logs-shop", "a.jsonl"),
+    [
+      line({ timestamp: at(t + 3000), debug: "Tool 'sync' completed successfully in 2s" }),
+      line({ timestamp: at(t + 10_000), debug: "Tool 'sync' completed successfully in 9s" }),
+    ].join("\n"),
+  );
+  const use = (id: string, ms: number) => line({ type: "assistant", timestamp: at(ms), message: { content: [{ type: "tool_use", id, name: "mcp__shop__sync", input: {} }] } });
+  const res = (id: string, ms: number) => line({ type: "user", timestamp: at(ms), message: { content: [{ type: "tool_result", tool_use_id: id, content: "ok" }] } });
+  mkdirSync(join(root, "projects", "-tmp-x"), { recursive: true });
+  // The long call starts first and ends last. The short call's log line also falls inside its window.
+  writeFileSync(join(root, "projects", "-tmp-x", "s1.jsonl"), [use("long", t), use("short", t + 100), res("short", t + 3000), res("long", t + 10_000)].join("\n"));
+
+  const r = await buildReport({ logsDir: join(root, "logs"), transcriptsDir: join(root, "projects") });
+  assert.equal(r.gapTimed, 0);
+  assert.deepEqual(r.servers[0]!.tools[0]!.durationMs, { p50: 2000, p90: 9000 });
+});

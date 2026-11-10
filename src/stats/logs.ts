@@ -12,7 +12,7 @@ import { readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { jsonlFiles, type ReadCounts } from "./transcripts.ts";
+import { jsonlFiles, type ReadCounts } from "../transcripts.ts";
 
 export interface Completion {
   /** Epoch ms of the log line. */

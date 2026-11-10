@@ -6,7 +6,9 @@
 //   listTools: upstream server -> ... -> layer[1] -> layer[0] -> client
 //
 // Each layer lives in src/<name>/index.ts and exports:
-//   export function createLayer(options: unknown): Layer
+//   export function createLayer(options: unknown): Layer | Promise<Layer>
+//
+// One proxy serves one upstream server, so one layer instance sees one server.
 import type { CallToolRequest, CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export type CallParams = CallToolRequest["params"];

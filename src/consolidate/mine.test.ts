@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { mine } from "./cli.ts";
-import { readToolCalls } from "./transcripts.ts";
+import { readToolCalls } from "../transcripts.ts";
 
 // All data here is synthetic. It follows the shape of Claude Code transcripts.
 let n = 0;
@@ -18,6 +18,7 @@ function session(calls: { name: string; input: object; text?: string; structured
     lines.push({ type: "api-request-blob", message: { content: [use] } });
     lines.push({
       type: "user",
+      timestamp: "2026-11-01T10:00:01Z",
       message: { role: "user", content: [{ type: "tool_result", tool_use_id: id, content: [{ type: "text", text: c.text ?? "ok" }] }] },
       ...(c.structured ? { mcpMeta: { structuredContent: c.structured } } : {}),
     });
@@ -50,10 +51,10 @@ await writeFile(join(dir, "proj-b", "s5.jsonl"), session([noise("post"), noise("
 test("reader yields each call once, with its result", async () => {
   const calls = [];
   for await (const c of readToolCalls(dir)) calls.push(c);
-  assert.equal(calls.length, 19);
+  assert.equal(calls.length, 18); // 19 calls were written. The one Bash call is not an MCP call.
   const first = calls.find((c) => c.name === "mcp__acme__search")!;
-  assert.match(String((first.result!.content[0] as { text: string }).text), /item-/);
-  assert.equal(first.result!.isError, false);
+  assert.match(String((first.content[0] as { text: string }).text), /item-/);
+  assert.equal(first.isError, false);
 });
 
 test("finds the planted chain, ignores noise, maps the data flow", async () => {
