@@ -187,15 +187,15 @@ const errorResult = (text: string): CallToolResult => ({ content: [{ type: "text
 const moreTool: Tool = {
   name: MORE_TOOL,
   description:
-    "Returns content that was cut from an earlier tool result to save tokens. " +
-    "Pass the cursor that result gave you. Pass path to get only one part, for example /structuredContent/messages/3/text.",
+    'Returns content that was cut from an earlier tool result to save tokens. Cut text ends in "… [cut N chars]". ' +
+    "Pass the cursor if the result gave you one. With no cursor you get the cut content of the most recent cut result, " +
+    "and calling again with no cursor continues it. Pass path to get only one part, for example /structuredContent/messages/3/text.",
   inputSchema: {
     type: "object",
     properties: {
-      cursor: { type: "string", description: "Cursor from the earlier result." },
+      cursor: { type: "string", description: "Optional. Cursor from the earlier result. Leave out to read the most recent cut result." },
       path: { type: "string", description: "Optional. Only return cut content at or below this path." },
     },
-    required: ["cursor"],
   },
 };
 
@@ -214,7 +214,7 @@ export function createLayer(options: unknown): Layer {
   type Entry = { rules: Rule[]; valid?: (v: unknown) => boolean };
   const known = new Map<string, Entry>(); // key: server + tool name
   const validators = new Map<string, (v: unknown) => boolean>(); // key: outputSchema as JSON
-  const store = new Map<string, { principal?: string; pieces: Piece[] }>();
+  const store = new Map<string, { principal?: string; tool: string; pieces: Piece[] }>();
   const keyOf = (ctx: LayerContext, name: string) => `${ctx.server}\0${name}`;
 
   const outputValidator = (outputSchema: object) => {
@@ -232,16 +232,26 @@ export function createLayer(options: unknown): Layer {
     return v;
   };
 
-  const save = (pieces: Piece[], principal: string | undefined, cursor = randomUUID()) => {
-    store.set(cursor, { principal, pieces });
+  const save = (pieces: Piece[], principal: string | undefined, tool: string, cursor = randomUUID()) => {
+    store.set(cursor, { principal, tool, pieces });
     if (store.size > MAX_CURSORS) store.delete(store.keys().next().value!);
     return cursor;
   };
 
   const more = (args: Record<string, unknown> | undefined, ctx: LayerContext): CallToolResult => {
-    const entry = store.get(String(args?.cursor ?? ""));
+    // Some clients show the model only structuredContent, so it never sees the notice that holds the cursor.
+    // With no cursor, serve this caller's newest entry. The reply names the tool, so a mix-up is visible.
+    // ponytail: "newest" is wrong if two cut results came back before the first "more" call. The cursor is exact.
+    const entry =
+      args?.cursor === undefined
+        ? [...store.values()].findLast((e) => e.principal === ctx.principal)
+        : store.get(String(args.cursor));
     if (!entry || entry.principal !== ctx.principal) {
-      return errorResult("Unknown or expired cursor. Call the original tool again.");
+      return errorResult(
+        args?.cursor === undefined
+          ? "Nothing was cut, or it has expired. Call the original tool again."
+          : "Unknown or expired cursor. Call again with no cursor to read the most recent cut result, or call the original tool again.",
+      );
     }
     const path = typeof args?.path === "string" ? args.path : "";
     const rest = entry.pieces.filter(
@@ -250,8 +260,8 @@ export function createLayer(options: unknown): Layer {
     // Fill one page up to the budget. A long string is split into slices with offsets.
     const page: Piece[] = [];
     // Chars, same chars/4 guess as resultTokens. 150 chars are left for the wrapper,
-    // the next cursor and the "More is left" line.
-    let room = budget * 4 - 150;
+    // the next cursor and the "More is left" line, plus the "from" field.
+    let room = budget * 4 - 150 - entry.tool.length - 12;
     while (rest.length) {
       const p = rest[0]!;
       const size = JSON.stringify(p).length + 1; // + the comma between pieces
@@ -279,7 +289,7 @@ export function createLayer(options: unknown): Layer {
       }
       break;
     }
-    const body = { pieces: page, ...(rest.length ? { cursor: save(rest, ctx.principal) } : {}) };
+    const body = { from: entry.tool, pieces: page, ...(rest.length ? { cursor: save(rest, ctx.principal, entry.tool) } : {}) };
     const content: CallToolResult["content"] = [{ type: "text", text: JSON.stringify(body) }];
     if (body.cursor) content.push({ type: "text", text: `More is left. Call ${MORE_TOOL} with cursor "${body.cursor}".` });
     // Text only: a structuredContent copy would double the size of every page.
@@ -319,7 +329,7 @@ export function createLayer(options: unknown): Layer {
       const cursor = randomUUID();
       const c = compactResult(res, entry.rules, budget, cursor, entry.valid);
       if (!c) return res;
-      save(c.pieces, ctx.principal, cursor);
+      save(c.pieces, ctx.principal, params.name, cursor);
       return c.result;
     },
   };

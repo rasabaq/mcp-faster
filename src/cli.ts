@@ -5,6 +5,7 @@ const commands: Record<string, string> = {
   bench: "./bench/cli.ts",
   mine: "./consolidate/cli.ts",
   proxy: "./proxy/cli.ts",
+  "slack-tickets": "./slack-tickets/cli.ts",
 };
 
 const [name, ...argv] = process.argv.slice(2);

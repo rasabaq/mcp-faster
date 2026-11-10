@@ -223,7 +223,12 @@ already uses.
 
 Input:
 
-- `cursor` (string, required): the cursor from the notice, or from an earlier page.
+- `cursor` (string, optional): the cursor from the notice, or from an earlier page. Without it, the
+  applier returns the cut content of this caller's most recent compacted result, and each further
+  call without a cursor continues it. This is needed because some clients show the model only
+  `structuredContent` when a result has it, so the model never sees the notice. A test with Claude
+  Code 2.1 showed this. The reply names the tool the content came from (`from`). An unknown cursor
+  is still an error.
 - `path` (string, optional): return only cut content at or below this path, or the cut piece that
   holds this path.
 

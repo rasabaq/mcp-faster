@@ -384,3 +384,31 @@ test("example manifests match the JSON Schema, bad ones do not", () => {
     { fields: { "/a~2": "keep" } },
   ]) assert.equal(isManifest(bad), false, JSON.stringify(bad));
 });
+
+test("more with no cursor reads the most recent cut result and then continues it", async () => {
+  // Claude Code shows the model only structuredContent when a result has it, so the model never sees the cursor.
+  const layer = createLayer({ budget: 300, manifests: { read_file: { fields: { "": "summarize" } } } });
+  const text = "line of synthetic text. ".repeat(200);
+  const { res } = await call(layer, { name: "read_file", arguments: { path: "a.txt" } }, () => ({ content: [{ type: "text", text }] }));
+  assert.match((res.content[0] as { text: string }).text, MARKER);
+
+  let got = "";
+  for (let i = 0; i < 50; i++) {
+    const { res: page } = await call(layer, { name: MORE_TOOL, arguments: {} }, () => {
+      throw new Error("more must not call upstream");
+    });
+    assert.notEqual(page.isError, true);
+    const body = JSON.parse((page.content[0] as { text: string }).text) as { from: string; pieces: Piece[]; cursor?: string };
+    assert.equal(body.from, "read_file");
+    got += body.pieces.map((p) => p.value).join("");
+    if (!body.cursor) break;
+  }
+  const kept = (res.content[0] as { text: string }).text.replace(MARKER, "");
+  assert.equal(kept + got, text);
+
+  // A wrong cursor is still an error. It must not silently return some other result.
+  const { res: bad } = await call(layer, { name: MORE_TOOL, arguments: { cursor: "cursor" } }, () => {
+    throw new Error("more must not call upstream");
+  });
+  assert.equal(bad.isError, true);
+});

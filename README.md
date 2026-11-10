@@ -9,6 +9,7 @@ This project builds the missing pieces in between. The full list is in [mcp-gaps
 | `mcp-faster bench` | Compares ways to expose tools (all upfront, tool search, code mode, local mirror) on the same tasks. | 4 |
 | `mcp-faster mine` | Finds tool calls that always chain and proposes one composite tool for each chain. | 1 |
 | `mcp-faster proxy` | Sits between a client and any MCP server and runs layers: `consolidate`, `cache`, `compact`. | 1, 2, 3, 8 |
+| `mcp-faster slack-tickets` | A two-tool Slack server built around one job: work through the tickets in a channel. | 5 |
 
 Spec proposals are in `spec/`.
 
