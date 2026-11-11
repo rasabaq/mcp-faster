@@ -7,6 +7,25 @@ import type { Step, Strategy } from "./strategies.ts";
 export interface Trajectory {
   steps: Step[];
   answer: string;
+  /** Set by a real-model runner. The oracle has no model, so it leaves this out. */
+  usage?: ModelUsage;
+}
+
+/** What one run cost at the model API, summed over every model call in the run. */
+export interface ModelUsage {
+  /** Model calls (turns). Retried calls count once. */
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costUsd: number;
+  /** Transport, 429 and 5xx retries. Not counted as turns, only logged. */
+  retries: number;
+  /** stop_reason of the last model call. */
+  stopReason: string;
+  /** The run used every turn of the cap without a final answer. That is a failure, not a crash. */
+  hitTurnCap: boolean;
 }
 
 /**
@@ -308,9 +327,6 @@ return \`Labeled \${bare.map((i) => i.id).join(", ")}.\`;`,
 };
 
 export const TASKS: Task[] = [CORE_P1_OPEN, DANA_OPEN, OLDEST_BUG, LAST_COMMENTER, MILESTONE, UNASSIGNED, MOST_COMMENTED, ASSIGN, CLOSE_DUPES, TRIAGE];
-
-/** Code mode runs only these. See the note on node:vm in strategies.ts. */
-export const SHIPPED_SCRIPTS = new Set(TASKS.map((t) => t.oracle.script));
 
 /** The scripted best case: the shortest correct trajectory we know for each task and strategy. */
 export const oracle: Runner = async (strategy, task) => {

@@ -1,11 +1,10 @@
 // Four ways to expose the same fixture server to a model.
 // Each strategy gives the tool list the model sees on turn one, and runs the model's tool calls.
 // Every call is recorded as a Step, so metrics come from the same place for all four.
-import vm from "node:vm";
 import { DatabaseSync } from "node:sqlite";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import type { Fixture } from "./fixture.ts";
-import { SHIPPED_SCRIPTS } from "./tasks.ts";
+import { runScript } from "./sandbox.ts";
 
 export const STRATEGIES = ["upfront", "search", "code", "mirror"] as const;
 export type StrategyName = (typeof STRATEGIES)[number];
@@ -31,6 +30,11 @@ export interface Strategy {
   steps: Step[];
   /** One-time cost paid before the first task (only the mirror has one). */
   setup: { upstreamCalls: number; ms: number };
+  /**
+   * Tool search only: every tool the search can load, and the names loaded so far.
+   * A model runner declares these up front as hidden and shows each one once it is loaded.
+   */
+  deferred?: { tools: ToolDef[]; loaded: Set<string> };
 }
 
 /** Simulated time for work done on the client side: tool search, the script runner, a local SQL query. */
@@ -47,10 +51,12 @@ export async function createStrategy(name: StrategyName, fx: Fixture): Promise<S
 
   let tools: ToolDef[] = defs;
   let exec = upstream;
+  let deferred: Strategy["deferred"];
 
   if (name === "search") {
     tools = [SEARCH_TOOL];
     const loaded = new Set<string>();
+    deferred = { tools: defs, loaded };
     exec = async (tool, args) => {
       if (tool === "search_tools") {
         const found = searchTools(defs, String(args.query ?? ""));
@@ -66,24 +72,14 @@ export async function createStrategy(name: StrategyName, fx: Fixture): Promise<S
     tools = [codeTool(defs)];
     exec = async (tool, args) => {
       if (tool !== "execute") return fail(`Unknown tool ${tool}.`);
-      const script = String(args.script ?? "");
-      // node:vm is not a security boundary. A script can escape the context and reach the host.
-      // That is fine here only because we run nothing but the scripts shipped in tasks.ts.
-      // ponytail: allow-list of shipped scripts, run model-written scripts in a separate process or container first.
-      if (!SHIPPED_SCRIPTS.has(script)) return fail("Code mode only runs scripts shipped in src/bench/tasks.ts.");
-      const api = Object.fromEntries(
-        defs.map((d) => [d.name, async (a: Args) => {
-          const r = await upstream(d.name, a);
-          if (r.isError) throw new Error(resultText(r));
-          return JSON.parse(resultText(r));
-        }]),
-      );
-      try {
-        const value = await vm.runInContext(`(async () => {\n${script}\n})()`, vm.createContext({ tools: api }), { timeout: 1000 });
-        return text(value);
-      } catch (e) {
-        return fail(`Script failed: ${(e as Error).message}`);
-      }
+      // The script runs in a separate, locked-down process. See sandbox.ts.
+      const r = await runScript(String(args.script ?? ""), async (tool, a) => {
+        if (!defs.some((d) => d.name === tool)) throw new Error(`Unknown tool ${tool}.`);
+        const res = await upstream(tool, a);
+        if (res.isError) throw new Error(resultText(res));
+        return JSON.parse(resultText(res));
+      });
+      return r.ok ? text(r.value) : fail(`Script failed: ${r.error}`);
     };
   }
 
@@ -122,6 +118,7 @@ export async function createStrategy(name: StrategyName, fx: Fixture): Promise<S
     tools,
     steps,
     setup,
+    ...(deferred ? { deferred } : {}),
     async call(tool, args) {
       const before = { ...fx.clock };
       const result = await exec(tool, args);
