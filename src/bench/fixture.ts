@@ -1,10 +1,9 @@
 // A fake issue tracker exposed as a real MCP server, in process.
 // The tools follow the vendor API shape on purpose: many small endpoints, paged lists,
 // and verbose objects. All data comes from a fixed seed, so every run is the same.
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
+import type { CallToolResult } from "@modelcontextprotocol/client";
 import { z } from "zod";
 
 export interface User { id: string; name: string; email: string; team: string }
@@ -187,7 +186,7 @@ export async function startFixture(): Promise<Fixture> {
 
   // Registers a tool and charges simulated time for each call.
   const tool = <S extends z.ZodRawShape>(name: string, description: string, shape: S, readOnly: boolean, fn: (a: z.infer<z.ZodObject<S>>) => unknown) => {
-    server.registerTool(name, { description, inputSchema: shape, annotations: { readOnlyHint: readOnly } }, (async (args: z.infer<z.ZodObject<S>>): Promise<CallToolResult> => {
+    server.registerTool(name, { description, inputSchema: z.object(shape), annotations: { readOnlyHint: readOnly } }, (async (args: z.infer<z.ZodObject<S>>): Promise<CallToolResult> => {
       clock.calls++;
       clock.ms += LATENCY_MS[name] ?? (readOnly ? READ_MS : WRITE_MS);
       try {

@@ -5,11 +5,9 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { Client, InMemoryTransport, type CallToolResult } from "@modelcontextprotocol/client";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { META_KEY, MORE_TOOL } from "../compact/index.ts";
 import { loadLayers } from "./cli.ts";
@@ -43,7 +41,7 @@ async function startUpstream() {
       return { content: [{ type: "text", text: JSON.stringify({ id, bio }) }] };
     },
   );
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: randomUUID });
+  const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: randomUUID });
   await mcp.connect(transport);
   const http = createServer((req, res) => void transport.handleRequest(req, res));
   await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));

@@ -2,8 +2,7 @@
 // A composite runs its steps one by one through next(). Every other call passes through.
 // Why only read-only tools by default: see README.md in this folder.
 import { readFileSync } from "node:fs";
-import { validateToolName } from "@modelcontextprotocol/sdk/shared/toolNameValidation.js";
-import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import { z } from "zod";
 import type { CallParams, Layer, Next } from "../layer.ts";
 
@@ -20,9 +19,12 @@ const Source = z.union([
   }),
 ]);
 
+/** The tool name rule of SEP-986. SDK v1 exported a check for it, v2 does not. */
+export const isValidToolName = (name: string) => /^[A-Za-z0-9._-]{1,128}$/.test(name);
+
 const Composite = z
   .object({
-    name: z.string().refine((n) => validateToolName(n).isValid, "is not a valid MCP tool name"),
+    name: z.string().refine(isValidToolName, "is not a valid MCP tool name"),
     description: z.string().default(""),
     approved: z.boolean(),
     // Opt in to steps that the server does not mark read-only. Off unless a human sets it.
@@ -112,7 +114,7 @@ export function createLayer(options: unknown): Layer {
 /** Returns the composite tool, or a reason why it may not be exposed. */
 function buildTool(c: Composite, byName: Map<string, Tool>): Tool | string {
   if (byName.has(c.name)) return "the server already has a tool with this name";
-  const properties: Record<string, object> = {};
+  const properties: NonNullable<Tool["inputSchema"]["properties"]> = {};
   const required = new Set<string>();
   let allReadOnly = true;
   for (const [i, step] of c.steps.entries()) {
@@ -124,7 +126,7 @@ function buildTool(c: Composite, byName: Map<string, Tool>): Tool | string {
         return `step ${i + 1} uses "${step.tool}", which the server does not mark readOnlyHint: true. Set "allowNonReadOnly": true on this composite to opt in`;
       }
     }
-    const props = (tool.inputSchema.properties ?? {}) as Record<string, object>;
+    const props = tool.inputSchema.properties ?? {};
     for (const arg of tool.inputSchema.required ?? []) {
       if (!(arg in step.args)) return `step ${i + 1} ("${step.tool}") needs argument "${arg}", but the composite does not map it`;
     }

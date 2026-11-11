@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { after, describe, test } from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { loadLayers, parseConfig, type Config } from "./cli.ts";
 
 const cli = fileURLToPath(new URL("../cli.ts", import.meta.url));
@@ -96,7 +96,7 @@ describe("mcp-faster proxy process", () => {
     client.onclose = () => ended.resolve();
     await client.connect(transport);
     try {
-      assert.deepEqual((await client.listTools()).tools.map((t) => t.name), ["echo", "notify", "exit"]);
+      assert.deepEqual((await client.listTools()).tools.map((t) => t.name), ["echo", "notify", "protocol", "exit"]);
       assert.deepEqual((await client.callTool({ name: "echo", arguments: { text: "hi" } })).content, [{ type: "text", text: "echo: hi" }]);
       await client.callTool({ name: "exit" });
       await ended.promise; // The proxy process ended on its own.

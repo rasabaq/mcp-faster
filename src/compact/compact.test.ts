@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
-import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import type { CallParams, LayerContext } from "../layer.ts";
 import { MARKER, META_KEY, MORE_TOOL, createLayer, isManifest, resultTokens, type Manifest, type Piece } from "./index.ts";
 

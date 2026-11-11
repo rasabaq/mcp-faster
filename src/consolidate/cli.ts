@@ -5,8 +5,7 @@ import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { validateToolName } from "@modelcontextprotocol/sdk/shared/toolNameValidation.js";
-import { jsonText, type ArgSource, type Composite } from "./index.ts";
+import { isValidToolName, jsonText, type ArgSource, type Composite } from "./index.ts";
 import { readToolCalls, type ToolCall } from "../transcripts.ts";
 
 const MIN_LEN = 2;
@@ -205,7 +204,7 @@ function propose(tools: string[], occurrences: Call[][], sessions: number, total
   });
 
   const joined = tools.join("_then_");
-  const name = validateToolName(joined).isValid ? joined : `chain_${tools.length}_${Math.abs(hash(joined))}`;
+  const name = isValidToolName(joined) ? joined : `chain_${tools.length}_${Math.abs(hash(joined))}`;
   return {
     name,
     description: `Seen ${occurrences.length} times in ${sessions} sessions.`,
