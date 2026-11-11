@@ -1,6 +1,6 @@
 // Cache layer: caches tools/call results, knows when they are stale, never mixes users.
 // The server-side contract it relies on is in spec/cache-validation.md.
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CacheScope, CallToolResult } from "@modelcontextprotocol/client";
 import { z } from "zod";
 import type { CallParams, Layer, LayerContext, Next } from "../layer.ts";
 
@@ -20,7 +20,7 @@ const Policy = z.strictObject({
   /** Upper bound on freshness. The smaller of this and the server's `ttlMs` wins. */
   ttlMs: z.number().int().min(0).optional(),
   /** "public" shares entries across principals. "private" wins over any "public". */
-  cacheScope: z.enum(["public", "private"]).optional(),
+  cacheScope: z.enum(["public", "private"] satisfies CacheScope[]).optional(),
   /** Set to true to cache a tool the server does not mark read-only. */
   readOnlyHint: z.boolean().optional(),
 });
@@ -43,15 +43,24 @@ interface ToolInfo {
   deps: string[];
 }
 
-export type CacheLayer = Layer & {
-  /**
-   * Call when the subscriptions/listen stream of a server closes or breaks.
-   * Not in the Layer contract yet, see spec/cache-validation.md.
-   */
-  onStreamClosed(ctx: LayerContext): void;
-  /** Resource URIs the proxy should put in `resourceSubscriptions` for this server. */
-  resourceSubscriptions(ctx: LayerContext): string[];
-};
+export type CacheLayer = Required<Pick<Layer, "onStreamClosed" | "resourceSubscriptions">> & Layer;
+
+/**
+ * The cache fields of SEP-2549 that this layer reads on a tools/call result (see spec/cache-validation.md).
+ * The SDK types them on no result, and they come from the wire, so they are checked before use.
+ */
+interface CacheHints {
+  ttlMs?: number;
+  cacheScope?: CacheScope;
+}
+
+function cacheHints(result: CallToolResult): CacheHints {
+  const { ttlMs, cacheScope } = result;
+  return {
+    ttlMs: typeof ttlMs === "number" && ttlMs >= 0 ? ttlMs : undefined,
+    cacheScope: cacheScope === "public" || cacheScope === "private" ? cacheScope : undefined,
+  };
+}
 
 export function createLayer(options: unknown): CacheLayer {
   const { tools: policies } = Options.parse(options ?? {});
@@ -98,8 +107,7 @@ export function createLayer(options: unknown): CacheLayer {
 
     if (body.isError === true || !isComplete(reply) || generation.get(ctx.server) !== gen) return body;
 
-    const hintTtl = typeof reply.ttlMs === "number" && reply.ttlMs >= 0 ? reply.ttlMs : undefined;
-    const hintScope = reply.cacheScope;
+    const { ttlMs: hintTtl, cacheScope: hintScope } = cacheHints(reply);
     const validator = typeof reply._meta?.[VALIDATOR] === "string" ? reply._meta[VALIDATOR] : notModified ? entry.validator : undefined;
     const deps = toolInfo.get(ctx.server)?.get(params.name)?.deps ?? [];
 
@@ -196,8 +204,12 @@ export function createLayer(options: unknown): CacheLayer {
   };
 }
 
-/** A 2026-07-28 server sets resultType; "input_required" and unknown types are not final results. */
-function isComplete(result: CallToolResult): boolean {
+/**
+ * A 2026-07-28 server sets resultType; "input_required" and unknown types are not final results.
+ * The SDK hides resultType from its public types and consumes it before a result reaches the proxy,
+ * so through the proxy this is always true. It guards callers that pass raw wire results.
+ */
+function isComplete(result: CallToolResult & { resultType?: unknown }): boolean {
   return result.resultType === undefined || result.resultType === "complete";
 }
 

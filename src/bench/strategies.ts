@@ -3,7 +3,7 @@
 // Every call is recorded as a Step, so metrics come from the same place for all four.
 import vm from "node:vm";
 import { DatabaseSync } from "node:sqlite";
-import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import type { Fixture } from "./fixture.ts";
 import { SHIPPED_SCRIPTS } from "./tasks.ts";
 

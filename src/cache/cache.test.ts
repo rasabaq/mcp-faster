@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, mock, test } from "node:test";
-import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import type { CallParams, LayerContext } from "../layer.ts";
 import { INVALIDATED_BY, NOT_MODIFIED, VALIDATOR, canonicalJson, createLayer } from "./index.ts";
 

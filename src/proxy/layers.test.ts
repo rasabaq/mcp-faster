@@ -1,15 +1,15 @@
 // The three real layers together, behind the real proxy: client -> compact -> consolidate -> cache -> upstream.
-// Each layer has its own tests. This one proves they load by name and work as one chain.
+// Each layer has its own tests. This one proves they load by name and work as one chain,
+// and that the cache's event mode works through the proxy's subscriptions/listen stream.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { Client, InMemoryTransport, type CallToolResult } from "@modelcontextprotocol/client";
+import { NodeStreamableHTTPServerTransport, toNodeHandler } from "@modelcontextprotocol/node";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import { INVALIDATED_BY } from "../cache/index.ts";
 import { z } from "zod";
 import { META_KEY, MORE_TOOL } from "../compact/index.ts";
 import { loadLayers } from "./cli.ts";
@@ -43,7 +43,7 @@ async function startUpstream() {
       return { content: [{ type: "text", text: JSON.stringify({ id, bio }) }] };
     },
   );
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: randomUUID });
+  const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: randomUUID });
   await mcp.connect(transport);
   const http = createServer((req, res) => void transport.handleRequest(req, res));
   await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
@@ -123,3 +123,107 @@ test("compact, consolidate and cache work as one chain behind the proxy", async 
     await upstream.stop();
   }
 });
+
+/** Waits until `check` is true, polling every 10 ms, for at most 5 s. */
+async function until(check: () => boolean) {
+  for (let i = 0; i < 500 && !check(); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(check(), "condition never became true");
+}
+
+for (const modernClient of [false, true]) {
+  test(`cache event mode: a resource update evicts, and a broken stream drops every event-protected entry (${modernClient ? "2026-07-28" : "2025"} client)`, async () => {
+    // A 2026-07-28 upstream. Its read-only tool has no TTL: it says which resource makes its results stale.
+    const CHANNEL = "fixture://channels/C1";
+    let runs = 0;
+    const handler = createMcpHandler(() => {
+      const mcp = new McpServer({ name: "chat", version: "0" }, { capabilities: { resources: { subscribe: true } } });
+      mcp.registerTool(
+        "history",
+        { description: "Read channel history.", annotations: { readOnlyHint: true }, _meta: { [INVALIDATED_BY]: [CHANNEL] } },
+        () => ({ content: [{ type: "text", text: `history v${++runs}` }] }),
+      );
+      return mcp;
+    });
+    const http = createServer(toNodeHandler(handler));
+    await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
+    const { port } = http.address() as AddressInfo;
+
+    const [cache] = await loadLayers([{ use: "cache" }]);
+    // Watch what the real cache layer is told, without changing what it does.
+    const seen: string[] = [];
+    let acked: unknown[] = []; // The URIs of the latest acknowledged stream.
+    const { onNotification, onStreamClosed } = cache!;
+    cache!.onNotification = (n, ctx) => {
+      seen.push(n.method);
+      if (n.method === "notifications/subscriptions/acknowledged") {
+        acked = (n.params as { notifications?: { resourceSubscriptions?: unknown[] } }).notifications?.resourceSubscriptions ?? [];
+      }
+      return onNotification!.call(cache, n, ctx);
+    };
+    cache!.onStreamClosed = (ctx) => {
+      seen.push("stream closed");
+      acked = [];
+      return onStreamClosed!.call(cache, ctx);
+    };
+
+    const [clientSide, proxySide] = InMemoryTransport.createLinkedPair();
+    const proxy = await startProxy({ server: "chat", upstream: { url: `http://127.0.0.1:${port}/mcp`, headers: {} } }, [cache!], proxySide);
+    const client = new Client({ name: "test", version: "0" }, modernClient ? { versionNegotiation: { mode: "auto" } } : {});
+    const clientUpdates: string[] = [];
+    client.setNotificationHandler("notifications/resources/updated", (n) => void clientUpdates.push(n.params.uri));
+    await client.connect(clientSide);
+    assert.equal(client.getNegotiatedProtocolVersion(), modernClient ? "2026-07-28" : "2025-11-25");
+    const history = async () => textOf(await client.callTool({ name: "history" }));
+    try {
+      // tools/list tells the cache which URI the tool depends on. The proxy then listens for it.
+      await client.listTools();
+      await until(() => acked.includes(CHANNEL));
+
+      // A cached answer is served.
+      assert.equal(await history(), "history v1");
+      assert.equal(await history(), "history v1");
+      assert.equal(runs, 1);
+
+      // The event evicts it, and the next call reaches the server.
+      handler.notify.resourceUpdated(CHANNEL);
+      await until(() => seen.includes("notifications/resources/updated"));
+      assert.equal(await history(), "history v2");
+      assert.equal(await history(), "history v2");
+      assert.equal(runs, 2);
+      // The client never subscribed to that URI, so the update stayed in the proxy.
+      assert.deepEqual(clientUpdates, []);
+
+      // The client's own subscription (resources/subscribe, or its own listen stream) rides the same stream. The new filter means a new stream,
+      // and the cache cannot know what the gap held, so it fetches once more.
+      const OTHER = "fixture://channels/C2";
+      if (modernClient) await client.listen({ resourceSubscriptions: [OTHER] });
+      else await client.subscribeResource({ uri: OTHER });
+      await until(() => acked.includes(OTHER) && acked.includes(CHANNEL));
+      assert.equal(await history(), "history v3");
+      handler.notify.resourceUpdated(OTHER);
+      await until(() => clientUpdates.length > 0);
+      assert.deepEqual(clientUpdates, [OTHER]);
+      // An update for another URI leaves the entry alone.
+      assert.equal(await history(), "history v3");
+      assert.equal(runs, 3);
+
+      // A broken stream drops every event-protected entry.
+      http.closeAllConnections();
+      await until(() => seen.includes("stream closed"));
+      assert.equal(await history(), "history v4");
+      assert.equal(runs, 4);
+
+      // The proxy listens again after a backoff, and caching works again.
+      await until(() => acked.includes(CHANNEL));
+      assert.equal(await history(), "history v5");
+      assert.equal(await history(), "history v5");
+      assert.equal(runs, 5);
+    } finally {
+      await client.close();
+      await proxy.closed;
+      await handler.close();
+      http.closeAllConnections();
+      await new Promise((resolve) => http.close(resolve));
+    }
+  });
+}

@@ -6,8 +6,8 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
-import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
-import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { AjvJsonSchemaValidator } from "@modelcontextprotocol/client/validators/ajv";
+import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import type { Layer, LayerContext } from "../layer.ts";
 
 export const META_KEY = "io.modelcontextprotocol/response-compaction";

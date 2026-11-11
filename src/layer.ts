@@ -9,7 +9,7 @@
 //   export function createLayer(options: unknown): Layer | Promise<Layer>
 //
 // One proxy serves one upstream server, so one layer instance sees one server.
-import type { CallToolRequest, CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolRequest, CallToolResult, Tool } from "@modelcontextprotocol/client";
 
 export type CallParams = CallToolRequest["params"];
 export type Next = (params: CallParams) => Promise<CallToolResult>;
@@ -30,7 +30,18 @@ export interface Layer {
   listTools?(tools: Tool[], ctx: LayerContext): Tool[] | Promise<Tool[]>;
   /** Wrap one tool call. May call next() zero or more times. */
   callTool?(params: CallParams, next: Next, ctx: LayerContext): Promise<CallToolResult>;
-  /** Every notification the upstream server sends is passed to every layer. */
+  /**
+   * Every notification the upstream server sends is passed to every layer.
+   * That includes the ones on the proxy's subscriptions/listen stream, and its
+   * notifications/subscriptions/acknowledged.
+   */
   onNotification?(notification: { method: string; params?: unknown }, ctx: LayerContext): void | Promise<void>;
+  /**
+   * Resource URIs this layer wants notifications/resources/updated for.
+   * The proxy asks again after every tools/list and listens for the union of all layers.
+   */
+  resourceSubscriptions?(ctx: LayerContext): string[];
+  /** The proxy's subscriptions/listen stream ended or broke. Events may have been missed. */
+  onStreamClosed?(ctx: LayerContext): void | Promise<void>;
   close?(): void | Promise<void>;
 }

@@ -4,7 +4,7 @@
 //   SLACK_WRITE_CHANNELS   optional, comma-separated channel ids where resolve_ticket may write. Empty means read only.
 //   SLACK_TICKET_REACTION  optional, default "ticket"
 //   SLACK_DONE_REACTION    optional, default "white_check_mark"
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { createServer } from "./index.ts";
 
 export async function main(_argv: string[]): Promise<void> {

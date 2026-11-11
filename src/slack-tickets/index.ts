@@ -5,7 +5,7 @@
 // Two tools, so the model needs no tool search and no chain of calls:
 //   list_tickets    one call returns every open ticket with its thread and the links in it
 //   resolve_ticket  one call replies in the thread and adds the done reaction
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 export interface Options {
