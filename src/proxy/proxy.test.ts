@@ -2,7 +2,7 @@
 // Every test runs against four upstreams: stdio and streamable HTTP, each on 2026-07-28 and on the 2025 revisions.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -15,7 +15,8 @@ import { createMcpHandler, Server } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { Layer } from "../layer.ts";
 import { createFixtureServer } from "./fixtures/server.ts";
-import { startProxy, type Upstream } from "./proxy.ts";
+import { loadLayers } from "./cli.ts";
+import { snapshotPath, startProxy, type ProxyConfig, type Upstream } from "./proxy.ts";
 
 const fixture = fileURLToPath(new URL("./fixtures/server.ts", import.meta.url));
 const dir = mkdtempSync(join(tmpdir(), "mcp-faster-proxy-test-"));
@@ -321,4 +322,181 @@ describe("fields the SDK schemas do not name", () => {
       }
     });
   }
+});
+
+describe("lazy start", () => {
+  let n = 0;
+  /** A fresh cache folder, a stdio fixture config, and a start counter per phase. */
+  const fresh = (args: string[] = []) => {
+    const cacheDir = join(dir, `lazy-${++n}`);
+    mkdirSync(cacheDir); // The start counters live here too.
+    const config = (starts: string, env: Record<string, string> = {}): ProxyConfig => ({
+      server: "fixture",
+      upstream: { command: process.execPath, args: [fixture, ...args], env: { FIXTURE_STARTS: join(cacheDir, starts), ...env } },
+      lazy: true,
+      cacheDir,
+    });
+    return { cacheDir, config, starts: (name: string) => (existsSync(join(cacheDir, name)) ? readFileSync(join(cacheDir, name), "utf8").trim().split("\n").length : 0) };
+  };
+  async function open(config: ProxyConfig, layers: Layer[] = []) {
+    const [clientSide, proxySide] = InMemoryTransport.createLinkedPair();
+    const proxy = await startProxy(config, layers, proxySide);
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(clientSide);
+    return {
+      client,
+      async stop() {
+        await client.close();
+        await proxy.closed;
+      },
+    };
+  }
+  /** The first lazy start has no snapshot: it connects at once and saves one. */
+  async function prime(config: ProxyConfig) {
+    const { stop } = await open(config);
+    try {
+      await until(() => existsSync(snapshotPath(config)));
+    } finally {
+      await stop();
+    }
+  }
+
+  for (const args of [[], ["--legacy"]]) {
+    test(`with a snapshot, initialize and tools/list do not start the upstream, the first call starts it once (${args.length ? "2025" : "2026-07-28"} upstream)`, async () => {
+      const { config, starts } = fresh(args);
+      await prime(config("prime.txt"));
+      assert.equal(starts("prime.txt"), 1);
+
+      const { client, stop } = await open(config("run.txt"));
+      try {
+        assert.deepEqual(client.getServerVersion(), { name: "fixture", version: "1.2.3" });
+        assert.equal(client.getInstructions(), "fixture instructions");
+        assert.deepEqual((await client.listTools()).tools.map((t) => t.name), ["echo", "notify", "protocol", "exit"]);
+        assert.equal(starts("run.txt"), 0);
+        // Two calls at the same time share one start.
+        const both = await Promise.all([client.callTool({ name: "echo", arguments: { text: "a" } }), client.callTool({ name: "echo", arguments: { text: "b" } })]);
+        assert.deepEqual(both.map(text), [["echo: a"], ["echo: b"]]);
+        assert.equal(starts("run.txt"), 1);
+      } finally {
+        await stop();
+      }
+    });
+  }
+
+  test("a changed upstream tool list sends tools/list_changed and updates the snapshot", async () => {
+    const { config } = fresh();
+    const c = config("starts.txt");
+    await prime(c);
+    const saved = JSON.parse(readFileSync(snapshotPath(c), "utf8")) as { tools: { name: string }[] };
+    saved.tools = saved.tools.filter((t) => t.name !== "exit"); // The upstream "lost" a tool since last time.
+    writeFileSync(snapshotPath(c), JSON.stringify(saved));
+
+    const { client, stop } = await open(c);
+    try {
+      const changed = Promise.withResolvers<void>();
+      client.setNotificationHandler("notifications/tools/list_changed", () => changed.resolve());
+      assert.deepEqual((await client.listTools()).tools.map((t) => t.name), ["echo", "notify", "protocol"]);
+      await client.callTool({ name: "echo", arguments: { text: "hi" } });
+      await changed.promise;
+      const now = JSON.parse(readFileSync(snapshotPath(c), "utf8")) as { tools: { name: string }[] };
+      assert.deepEqual(now.tools.map((t) => t.name), ["echo", "notify", "protocol", "exit"]);
+      assert.deepEqual((await client.listTools()).tools.map((t) => t.name), ["echo", "notify", "protocol", "exit"]);
+    } finally {
+      await stop();
+    }
+  });
+
+  test("an upstream that cannot start gives an error result, and a later call works", async () => {
+    const flag = join(dir, `fail-${n + 1}.flag`);
+    const { config, starts } = fresh(["--fail-while", flag]);
+    await prime(config("prime.txt"));
+    writeFileSync(flag, "");
+    const { client, stop } = await open(config("run.txt"));
+    try {
+      const failed = await client.callTool({ name: "echo", arguments: { text: "hi" } });
+      assert.equal(failed.isError, true);
+      assert.match(text(failed)[0] ?? "", /could not start upstream server "fixture"/);
+      rmSync(flag);
+      assert.deepEqual(text(await client.callTool({ name: "echo", arguments: { text: "hi" } })), ["echo: hi"]);
+      // The failed start counts twice: the proxy retries a server that exits during the 2026-07-28 probe.
+      assert.equal(starts("run.txt"), 3);
+    } finally {
+      await stop();
+    }
+  });
+
+  test("a cache hit does not start the upstream", async () => {
+    const { config, starts } = fresh();
+    await prime(config("prime.txt"));
+    // One cache layer shared by two proxies, so the second one has a stored answer before its upstream runs.
+    const layers = await loadLayers([{ use: "cache", options: { tools: { echo: { ttlMs: 60_000, readOnlyHint: true } } } }]);
+    // The cache does not store a result fetched while its event stream changes, so wait for the stream first.
+    let acked = false;
+    const onNotification = layers[0]!.onNotification!;
+    layers[0]!.onNotification = (n, ctx) => ((acked ||= n.method === "notifications/subscriptions/acknowledged"), onNotification.call(layers[0], n, ctx));
+    const a = await open(config("a.txt"), layers);
+    try {
+      await a.client.listTools();
+      await a.client.callTool({ name: "echo", arguments: { text: "hi" } });
+      await until(() => acked);
+      await a.client.callTool({ name: "echo", arguments: { text: "hi" } }); // Stored now.
+      assert.equal(starts("a.txt"), 1);
+      const b = await open(config("b.txt"), layers);
+      try {
+        await b.client.listTools();
+        assert.deepEqual(text(await b.client.callTool({ name: "echo", arguments: { text: "hi" } })), ["echo: hi"]);
+        assert.equal(starts("b.txt"), 0);
+      } finally {
+        await b.stop();
+      }
+    } finally {
+      await a.stop();
+    }
+  });
+
+  test("the snapshot holds no header or env values, and only its owner can read it", async () => {
+    const SECRET = "synthetic-env-secret";
+    const { config } = fresh();
+    const stdio = config("starts.txt", { SECRET_FOR_TEST: SECRET });
+    await prime(stdio);
+    const http = await startHttpFixture(false);
+    const viaHttp: ProxyConfig = { server: "fixture", upstream: http.upstream, lazy: true, cacheDir: stdio.cacheDir };
+    try {
+      await prime(viaHttp);
+    } finally {
+      await http.stop();
+    }
+    for (const c of [stdio, viaHttp]) {
+      const saved = readFileSync(snapshotPath(c), "utf8");
+      for (const secret of [SECRET, "SECRET_FOR_TEST", "synthetic-key", "x-test-key", "127.0.0.1"]) assert.ok(!saved.includes(secret), `snapshot holds ${secret}`);
+      assert.equal(statSync(snapshotPath(c)).mode & 0o777, 0o600);
+    }
+    assert.notEqual(snapshotPath(stdio), snapshotPath(viaHttp));
+  });
+
+  test("a snapshot that is not valid is ignored and replaced", async () => {
+    const { config, starts } = fresh();
+    const c = config("starts.txt");
+    await prime(c);
+    writeFileSync(snapshotPath(c), JSON.stringify({ format: 1, tools: "not a list" }));
+    const { client, stop } = await open(c);
+    try {
+      assert.equal(starts("starts.txt"), 2); // Connected at start, as with no snapshot.
+      await client.listTools();
+      await until(() => readFileSync(snapshotPath(c), "utf8").includes('"echo"'));
+    } finally {
+      await stop();
+    }
+  });
+
+  test("without lazy, no snapshot is written", async () => {
+    const { config } = fresh();
+    const { client, stop } = await open({ ...config("starts.txt"), lazy: false });
+    try {
+      await client.callTool({ name: "echo", arguments: { text: "hi" } });
+    } finally {
+      await stop();
+    }
+    assert.ok(!existsSync(snapshotPath(config("starts.txt"))));
+  });
 });

@@ -48,6 +48,10 @@ const configSchema = z.strictObject({
     }),
   ),
   layers: z.array(z.strictObject({ use: z.enum(LAYERS), options: z.unknown().optional() })).default([]),
+  // true: once a snapshot of the upstream exists, start the upstream only on the first request that needs it.
+  lazy: z.boolean().optional(),
+  // Folder for snapshot files. Default: $XDG_CACHE_HOME/mcp-faster or ~/.cache/mcp-faster.
+  cacheDir: z.string().min(1).optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;

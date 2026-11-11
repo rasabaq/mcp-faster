@@ -3,8 +3,9 @@
 // With --exit-on-probe it serves the 2025 revisions and exits when the first message is not initialize,
 // like some older servers do.
 // If FIXTURE_STARTS names a file, every start appends one line to it.
+// With --fail-while <file> it exits at once with code 1 while that file exists.
 // Tests also run it in-process over streamable HTTP.
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio, StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
@@ -57,6 +58,8 @@ export function createFixtureServer(state = { added: false }, toolsChanged?: () 
 
 if (import.meta.main) {
   if (process.env.FIXTURE_STARTS) appendFileSync(process.env.FIXTURE_STARTS, `${process.pid}\n`);
+  const failWhile = process.argv[process.argv.indexOf("--fail-while") + 1];
+  if (process.argv.includes("--fail-while") && failWhile && existsSync(failWhile)) process.exit(1);
   if (process.argv.includes("--exit-on-probe")) process.stdin.once("data", (chunk) => String(chunk).includes('"initialize"') || process.exit(0));
   if (process.argv.includes("--legacy") || process.argv.includes("--exit-on-probe")) await createFixtureServer().connect(new StdioServerTransport());
   else serveStdio(() => createFixtureServer());

@@ -13,6 +13,26 @@ This project builds the missing pieces in between. The full list is in [mcp-gaps
 
 Spec proposals are in `spec/`.
 
+## Proxy config
+
+`mcp-faster proxy --config proxy.json` reads one JSON file. All fields are checked in `src/proxy/cli.ts`.
+
+```json
+{
+  "server": "github",
+  "upstream": { "command": "node", "args": ["/path/to/server.js"], "env": { "TOKEN": "${GITHUB_TOKEN}" } },
+  "layers": [{ "use": "cache" }],
+  "lazy": true
+}
+```
+
+- `upstream` is `{ command, args, env }` for stdio or `{ url, headers }` for HTTP. `${NAME}` in `env` and `headers` reads an environment variable.
+- `lazy` (default `false`): the first start saves a snapshot of what the server advertises. Later starts answer
+  `initialize` and `tools/list` from it and start the server only on the first request that needs it.
+  If the tool list has changed by then, the proxy saves a new snapshot and sends `notifications/tools/list_changed`.
+- `cacheDir`: where snapshots go. Default `$XDG_CACHE_HOME/mcp-faster` or `~/.cache/mcp-faster`. A snapshot holds
+  only what the server sent, never headers, env values or the URL. Its file mode is 0600.
+
 ## Develop
 
 Needs Node 24 or newer. TypeScript runs directly, there is no build step.
