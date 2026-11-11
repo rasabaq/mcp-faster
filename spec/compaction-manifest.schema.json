@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Response compaction manifest",
-  "description": "Says, per field of a tool result, what a client may cut when the result is over its token budget. Lives at Tool._meta[\"io.modelcontextprotocol/response-compaction\"]. See spec/response-compaction.md. Unknown top-level members are allowed and must be ignored, so later versions can add optional members.",
+  "description": "Says, per field of a tool result, what a client may cut when the result is over its token budget. Lives at Tool._meta[\"io.modelcontextprotocol/response-compaction\"] once accepted. Until then the reference implementation in mcp-faster reads \"dev.mcp-faster/response-compaction\". See spec/response-compaction.md. Unknown top-level members are allowed and must be ignored, so later versions can add optional members.",
   "type": "object",
   "required": ["fields"],
   "properties": {

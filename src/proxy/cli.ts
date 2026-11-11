@@ -79,7 +79,8 @@ export async function loadLayers(specs: Config["layers"], root = new URL("../", 
   try {
     for (const { use, options } of specs) {
       if (!(LAYERS as readonly string[]).includes(use)) throw new Error(`unknown layer "${use}". Known layers: ${LAYERS.join(", ")}`);
-      const file = new URL(`${use}/index.ts`, root);
+      // From source the layers are .ts files. In the published package they are built to .js.
+      const file = new URL(`${use}/index.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`, root);
       if (!existsSync(file)) throw new Error(`layer "${use}" is not installed: ${fileURLToPath(file)} does not exist`);
       let layer: unknown;
       try {

@@ -56,7 +56,9 @@ the client and the server. The server is never the applier.
 
 ### Extension identifier and negotiation
 
-The extension identifier is `io.modelcontextprotocol/response-compaction`.
+The extension identifier is `io.modelcontextprotocol/response-compaction`. MCP reserves that prefix, so
+until this proposal is accepted the reference implementation in mcp-faster uses
+`dev.mcp-faster/response-compaction` for both the `_meta` key and the identifier.
 
 A server that ships manifests SHOULD list the extension in `capabilities.extensions` with an empty
 settings object. Clients MUST NOT require this: the manifest on a tool is enough.

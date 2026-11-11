@@ -13,6 +13,15 @@ This project builds the missing pieces in between. The full list is in [mcp-gaps
 
 Spec proposals are in `spec/`.
 
+## Install
+
+Needs Node 24 or newer.
+
+```sh
+npx mcp-faster stats            # what your MCP servers cost you, from Claude Code's logs
+npx mcp-faster proxy --config proxy.json
+```
+
 ## Proxy config
 
 `mcp-faster proxy --config proxy.json` reads one JSON file. All fields are checked in `src/proxy/cli.ts`.
@@ -35,13 +44,15 @@ Spec proposals are in `spec/`.
 
 ## Develop
 
-Needs Node 24 or newer. TypeScript runs directly, there is no build step.
+TypeScript runs directly from `src` while you work. `npm run build` compiles it to `dist` for the
+published package, because Node does not run TypeScript from `node_modules`.
 
 ```sh
 npm ci
 npm test
 npm run typecheck
 node src/cli.ts stats
+npm run build
 ```
 
 Every proxy layer implements the one contract in `src/layer.ts`.

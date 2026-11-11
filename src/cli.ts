@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 // Each command lives in its own folder and exports: main(argv: string[]): Promise<void>
-const commands: Record<string, string> = {
-  stats: "./stats/cli.ts",
-  bench: "./bench/cli.ts",
-  mine: "./consolidate/cli.ts",
-  proxy: "./proxy/cli.ts",
-  "slack-tickets": "./slack-tickets/cli.ts",
+// The imports are written out so the build can rewrite ".ts" to ".js".
+type Command = () => Promise<{ main: (argv: string[]) => Promise<void> }>;
+const commands: Record<string, Command> = {
+  stats: () => import("./stats/cli.ts"),
+  bench: () => import("./bench/cli.ts"),
+  mine: () => import("./consolidate/cli.ts"),
+  proxy: () => import("./proxy/cli.ts"),
+  "slack-tickets": () => import("./slack-tickets/cli.ts"),
 };
 
 const [name, ...argv] = process.argv.slice(2);
-const path = name ? commands[name] : undefined;
-if (!path) {
+const load = name ? commands[name] : undefined;
+if (!load) {
   console.error(`usage: mcp-faster <${Object.keys(commands).join(" | ")}> [options]`);
   process.exit(1);
 }
-const { main } = (await import(path)) as { main: (argv: string[]) => Promise<void> };
-await main(argv);
+await (await load()).main(argv);

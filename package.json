@@ -1,13 +1,34 @@
 {
   "name": "mcp-faster",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Make MCP servers cheaper and faster for agents: measurement, tool consolidation, caching, response compaction.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "proxy",
+    "cache",
+    "claude",
+    "agents"
+  ],
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "mcp-faster": "dist/cli.js"
+  },
+  "types": "dist/layer.d.ts",
+  "files": [
+    "dist",
+    "spec",
+    "README.md",
+    "LICENSE",
+    "mcp-gaps.md"
+  ],
   "engines": {
     "node": ">=24"
   },
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },

@@ -10,7 +10,9 @@ import { AjvJsonSchemaValidator } from "@modelcontextprotocol/client/validators/
 import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import type { Layer, LayerContext } from "../layer.ts";
 
-export const META_KEY = "io.modelcontextprotocol/response-compaction";
+// The proposal asks for "io.modelcontextprotocol/response-compaction". MCP reserves that prefix,
+// so this code uses its own prefix until the proposal is accepted.
+export const META_KEY = "dev.mcp-faster/response-compaction";
 export const MORE_TOOL = "compaction_more";
 
 type Policy = "keep" | "drop" | "summarize";
