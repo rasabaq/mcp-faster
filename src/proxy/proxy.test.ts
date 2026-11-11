@@ -81,7 +81,7 @@ async function setup(kind: Kind, layers: Layer[] = [], clientOptions?: ClientOpt
 }
 
 /** Waits until `check` is true, polling every 10 ms, for at most 5 s. */
-export async function until(check: () => boolean) {
+async function until(check: () => boolean) {
   for (let i = 0; i < 500 && !check(); i++) await new Promise((resolve) => setTimeout(resolve, 10));
   assert.ok(check(), "condition never became true");
 }
@@ -254,6 +254,23 @@ describe("protocol revisions", () => {
     });
   }
 
+  test("an upstream that exits on the probe is started again with the 2025 handshake", async () => {
+    const starts = join(dir, "exit-on-probe-starts.txt");
+    const [clientSide, proxySide] = InMemoryTransport.createLinkedPair();
+    const upstream = { command: process.execPath, args: [fixture, "--exit-on-probe"], env: { FIXTURE_STARTS: starts } };
+    const proxy = await startProxy({ server: "fixture", upstream }, [], proxySide);
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(clientSide);
+    try {
+      assert.deepEqual(text(await client.callTool({ name: "protocol" })), [LEGACY]);
+    } finally {
+      await client.close();
+      await proxy.closed;
+    }
+    // The first process exited before the second one started, so only one ran at a time.
+    assert.equal(readFileSync(starts, "utf8").trim().split("\n").length, 2);
+  });
+
   for (const kind of KINDS) {
     test(`an upstream protocol error keeps its code (${kind} upstream)`, async () => {
       const { client, stop } = await setup(kind);
@@ -275,7 +292,7 @@ describe("fields the SDK schemas do not name", () => {
       tools: [{ name: "t", inputSchema: { type: "object" as const }, "x-extra": { a: 1 }, _meta: { "dev.test/tool": true } }],
     }));
     s.setRequestHandler("tools/call", () => ({ content: [], ttlMs: 5000, cacheScope: "public", "x-extra": "call" }));
-    s.setRequestHandler("resources/read", () => ({ contents: [], "x-extra": "read" }));
+    s.setRequestHandler("resources/read", () => ({ contents: [], ttlMs: 7000, cacheScope: "public", "x-extra": "read" }));
     return s;
   };
 
@@ -284,7 +301,8 @@ describe("fields the SDK schemas do not name", () => {
       const http = await startHttpFixture(modern, build);
       const [clientSide, proxySide] = InMemoryTransport.createLinkedPair();
       const proxy = await startProxy({ server: "extra", upstream: http.upstream }, [], proxySide);
-      const client = new Client({ name: "test", version: "0" });
+      // The client speaks what the upstream speaks, so cache fields on a 2026-07-28 read reach it.
+      const client = new Client({ name: "test", version: "0" }, modern ? { versionNegotiation: { mode: "auto" } } : {});
       await client.connect(clientSide);
       try {
         // Read the raw result, so the test client's own schema cannot drop anything.
@@ -293,7 +311,9 @@ describe("fields the SDK schemas do not name", () => {
         assert.deepEqual(raw.tools[0]?._meta, { "dev.test/tool": true });
         const result = await client.request({ method: "tools/call", params: { name: "t" } }, z.looseObject({ content: z.array(z.looseObject({})) }));
         assert.deepEqual([result.ttlMs, result.cacheScope, result["x-extra"]], [5000, "public", "call"]);
-        assert.equal((await client.request({ method: "resources/read", params: { uri: "x://y" } }))["x-extra"], "read");
+        const read = await client.request({ method: "resources/read", params: { uri: "x://y" } }, z.looseObject({}));
+        assert.equal(read["x-extra"], "read");
+        assert.deepEqual([read.ttlMs, read.cacheScope], [7000, "public"]);
       } finally {
         await client.close();
         await proxy.closed;

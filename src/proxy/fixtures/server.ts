@@ -1,5 +1,7 @@
 // A small MCP server for the proxy tests. Synthetic data only.
 // Run directly, it serves on stdio: both 2026-07-28 and the 2025 revisions, or only the 2025 ones with --legacy.
+// With --exit-on-probe it serves the 2025 revisions and exits when the first message is not initialize,
+// like some older servers do.
 // If FIXTURE_STARTS names a file, every start appends one line to it.
 // Tests also run it in-process over streamable HTTP.
 import { appendFileSync } from "node:fs";
@@ -55,6 +57,7 @@ export function createFixtureServer(state = { added: false }, toolsChanged?: () 
 
 if (import.meta.main) {
   if (process.env.FIXTURE_STARTS) appendFileSync(process.env.FIXTURE_STARTS, `${process.pid}\n`);
-  if (process.argv.includes("--legacy")) await createFixtureServer().connect(new StdioServerTransport());
+  if (process.argv.includes("--exit-on-probe")) process.stdin.once("data", (chunk) => String(chunk).includes('"initialize"') || process.exit(0));
+  if (process.argv.includes("--legacy") || process.argv.includes("--exit-on-probe")) await createFixtureServer().connect(new StdioServerTransport());
   else serveStdio(() => createFixtureServer());
 }

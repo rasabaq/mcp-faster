@@ -14,6 +14,7 @@ import {
   SdkError,
   SdkErrorCode,
   StreamableHTTPClientTransport,
+  SUBSCRIPTION_ID_META_KEY,
   type JSONRPCRequest,
   type LoggingLevel,
   type McpSubscription,
@@ -221,6 +222,13 @@ export async function startProxy(config: { server: string; upstream: Upstream },
     if (modern && notification.method === "notifications/resources/updated") {
       const uri = (notification.params as { uri?: unknown } | undefined)?.uri;
       if (typeof uri !== "string" || !clientWants(uri)) return;
+    }
+    // The id of the proxy's own listen stream means nothing to the client. serveStdio stamps the client's own.
+    const meta = notification.params?._meta;
+    if (meta && SUBSCRIPTION_ID_META_KEY in meta) {
+      const { [SUBSCRIPTION_ID_META_KEY]: _id, ...rest } = meta;
+      const { _meta, ...params } = notification.params!;
+      notification = { ...notification, params: Object.keys(rest).length > 0 ? { ...params, _meta: rest } : params };
     }
     await server?.notification(notification);
   };

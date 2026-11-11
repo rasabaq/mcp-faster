@@ -138,6 +138,15 @@ so a client cannot resume a stream or replay what it missed. So:
   acknowledgement.
 - Until a stream is live, a result that depends only on events is not stored.
 
+## The SDK's own response cache
+
+The TypeScript SDK v2 client has a response cache that honours `ttlMs` and `cacheScope`, but only for
+its typed list and `resources/read` calls, never for `tools/call`. The proxy forwards every request with
+`client.request()`, which skips that cache, so our cache layer is the only cache in the proxy and the
+two can never disagree. Read results and lists other than `tools/list` pass through with their `ttlMs`
+and `cacheScope`, so the client in front of the proxy can cache those itself, with its own scope rules.
+`tools/list` goes out with the SDK default (`ttlMs: 0`, `"private"`), because layers change it.
+
 ## Open questions
 
 - Per-argument invalidation. `invalidatedBy` is per tool, so an update to one channel evicts the
