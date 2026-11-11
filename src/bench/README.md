@@ -119,9 +119,83 @@ Each script now pays about 75 ms of process start-up in real wall time. Sim ms d
 
 ## Model results
 
-None yet. The first attempt (2026-11-11) stopped at once: the API answered `401 invalid x-api-key` for the key in
-`ANTHROPIC_API_KEY`, so no model call ran and nothing was billed. The table above is still the only data, and it is
-the scripted best case. Run the command at the top with a working key to fill this section.
+Run on 2026-11-11 with `claude-sonnet-5-5`, effort `medium`, 5 runs per task per strategy (200 runs), turn cap 40.
+It cost $2.78, plus $1.12 for a one-run pilot before it. Raw results: `bench-results/2026-11-11T14-00-12-155Z-claude-sonnet-5-5.json`.
+
+```
+MODEL RUN: claude-sonnet-5-5, 200/200 runs, spent $2.7800 of $18.
+
+task                strategy   k            ok       pass^k  crash  cap  turns  calls  in tok  out tok       $  wall s
+------------------  --------  --  ------------  -----------  -----  ---  -----  -----  ------  -------  ------  ------
+count-open-p1       upfront    5           5/5          yes      0    0      2      1   11360      122  0.0024     3.3
+count-open-p1       search     5           5/5          yes      0    0      3      2    8414      172  0.0026     4.3
+count-open-p1       code       5           5/5          yes      0    0      3      2    5080      305  0.0044     5.0
+count-open-p1       mirror     5           5/5          yes      0    0      2      1    4597       84  0.0013     4.4
+user-open-issues    upfront    5           5/5          yes      0    0      3      5   15517      468  0.0062     5.2
+user-open-issues    search     5           5/5          yes      0    0      5      8   16056      644  0.0195     7.4
+user-open-issues    code       5           5/5          yes      0    0      4      3    8301      482  0.0080     8.3
+user-open-issues    mirror     5           5/5          yes      0    0      3      2    7890      222  0.0048     3.8
+oldest-open-bug     upfront    5           5/5          yes      0    0      2      1   10983      155  0.0027     2.6
+oldest-open-bug     search     5           5/5          yes      0    0      3      2    8040      175  0.0026     3.6
+oldest-open-bug     code       5           5/5          yes      0    0      3      2    5450      439  0.0065     4.6
+oldest-open-bug     mirror     5           5/5          yes      0    0      2      1    4740      125  0.0025     3.0
+last-commenter      upfront    5           5/5          yes      0    0      2      1    8276       64  0.0015     2.8
+last-commenter      search     5           5/5          yes      0    0      3      2    5099      117  0.0017     3.3
+last-commenter      code       5           5/5          yes      0    0      2      1    3788       82  0.0012     2.3
+last-commenter      mirror     5           5/5          yes      0    0      2      1    4724      108  0.0022     3.0
+milestone-progress  upfront    5           5/5          yes      0    0      3      3   19155      305  0.0050     4.3
+milestone-progress  search     5           5/5          yes      0    0      4      4   13753      361  0.0050     6.2
+milestone-progress  code       5           5/5          yes      0    0      6      5   12325      673  0.0108    20.9
+milestone-progress  mirror     5           5/5          yes      0    0      2      1    4713      173  0.0023     3.0
+unassigned-open     upfront    5           5/5          yes      0    0      3      4   49732      437  0.0094     4.9
+unassigned-open     search     5           5/5          yes      0    0      5      6   48857      557  0.1034     7.1
+unassigned-open     code       5           2/5           no      0    0      3      2    5486      558  0.0077     7.1
+unassigned-open     mirror     5           5/5          yes      0    0      2      1    4589       82  0.0017     2.3
+most-commented      upfront    5           1/5           no      0    0      5     62  140840     3337  0.1265    21.1
+most-commented      search     5           2/5           no      0    0      5     63   96558     3307  0.1214    19.9
+most-commented      code       5           5/5          yes      0    0      3      2    5439      505  0.0071     5.3
+most-commented      mirror     5           5/5          yes      0    0      2      1    4578      105  0.0015     3.1
+assign-and-comment  upfront    5           5/5          yes      0    0      3      3   12810      276  0.0041     7.1
+assign-and-comment  search     5           5/5          yes      0    0      5      6   13887      459  0.0097     6.8
+assign-and-comment  code       5           5/5          yes      0    0      3      2    5542      282  0.0051     4.5
+assign-and-comment  mirror     5           5/5          yes      0    0      3      3    7436      317  0.0039     4.4
+close-duplicates    upfront    5           5/5          yes      0    0      3      7   18936      664  0.0085     5.8
+close-duplicates    search     5           5/5          yes      0    0      4      9   17096      762  0.0093     7.4
+close-duplicates    code       5           5/5          yes      0    0      4      3    7472      564  0.0080     8.2
+close-duplicates    mirror     5           5/5          yes      0    0      3      7   10087      614  0.0072     5.8
+triage-unlabeled    upfront    5           5/5          yes      0    0      3      2   20940      267  0.0048     4.4
+triage-unlabeled    search     5           5/5          yes      0    0      4      4   18830      376  0.0057     7.0
+triage-unlabeled    code       5           5/5          yes      0    0      4      3    8053      493  0.0084     9.1
+triage-unlabeled    mirror     5           5/5          yes      0    0      3      3    7641      255  0.0051     5.9
+------------------  --------  --  ------------  -----------  -----  ---  -----  -----  ------  -------  ------  ------
+TOTAL               upfront   50   46/50 (92%)   9/10 tasks      0    0      3      3   17227      292  0.8539     4.6
+TOTAL               search    50   47/50 (94%)   9/10 tasks      0    0      4      5   14678      417  1.3971     6.8
+TOTAL               code      50   47/50 (94%)   9/10 tasks      0    0      3      2    5544      487  0.3523     6.5
+TOTAL               mirror    50  50/50 (100%)  10/10 tasks      0    0      2      1    4732      132  0.1767     3.5
+
+k: runs. ok: runs that passed the checker. pass^k: every run passed. crash: the run threw (API failure), kept apart from wrong answers.
+cap: the run hit the turn cap (counted as a failure, not a crash).
+turns, calls, in tok, out tok, $, wall s: medians per run. In TOTAL rows, $ is the sum over all runs and the rest are medians.
+in tok: all input tokens the API billed, summed over every model call (uncached + cache read + cache write).
+```
+
+What it shows:
+
+- **The local copy (mirror) was the cheapest, fastest and most reliable.** It passed 50 of 50 runs for $0.18 in
+  total, with a median of 2 turns and 3.5 seconds. Its rows do not include the backfill (191 upstream calls), so it
+  only pays off when the same data is read again and again.
+- **Code mode was about 2.4 times cheaper than all tools upfront** ($0.35 against $0.85), because the model reads
+  one short answer, not pages of results. It was the only way to pass the hardest task (most-commented: 5 of 5)
+  besides the mirror. But it failed 3 of 5 runs of `unassigned-open`, where the other three ways passed every run.
+- **Tool search cost the most** ($1.40), 1.6 times more than all tools upfront, and was the slowest (6.8 s median).
+  Its extra turns to find tools cost more than the tool definitions it saved.
+- **All tools upfront and tool search broke on the task that needs 62 calls** (most-commented: 1 of 5 and 2 of 5).
+  Pages of raw results pile up in the context, and the model loses count.
+
+What it does not show: one model at one effort level, one made-up issue tracker with 24 tools, and 10 tasks. With 5
+runs per cell, a single failure moves a rate by 20 points. Prices are list prices, not the bill. Code-mode time
+includes about 75 ms to start each sandboxed script. The tool-search strategy uses a beta API feature
+(`tool_addition`) that a real client may not use.
 
 ## Plugging in another runner
 
