@@ -371,7 +371,8 @@ test("example manifests match the JSON Schema, bad ones do not", () => {
   for (const [, block] of spec.matchAll(/```json\n([\s\S]*?)```/g)) {
     const v = JSON.parse(block!) as { fields?: unknown; _meta?: Record<string, unknown> };
     if (v.fields) fromSpec.push(v);
-    if (v._meta?.[META_KEY]) fromSpec.push(v._meta[META_KEY]);
+    // The spec's examples use the key the proposal asks for. The code uses its own key until then.
+    for (const key of [META_KEY, "io.modelcontextprotocol/response-compaction"]) if (v._meta?.[key]) fromSpec.push(v._meta[key]);
   }
   assert.ok(fromSpec.length >= 2, "the spec has example manifests");
   for (const m of [chatManifest, issueManifest, docManifest, ...fromSpec]) assert.ok(isManifest(m), JSON.stringify(m));
