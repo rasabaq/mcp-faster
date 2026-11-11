@@ -234,12 +234,14 @@ export async function runModelBench(o: ModelBenchOptions) {
     tasks: o.tasks,
     strategies: o.strategies,
     // Stop starting runs once the next one could take the total past the budget. The guess is the costliest run so far.
-    canStart: () => runner.spentUsd + runner.maxRunUsd <= o.budgetUsd,
+    // A rejected key stops the bench too.
+    canStart: () => !runner.keyRejected && runner.spentUsd + runner.maxRunUsd <= o.budgetUsd,
     onRow: (r, done, total) =>
       log(`[${done}/${total}] ${r.task} ${r.strategy} run ${r.run}: ${r.error ? `crash: ${r.error}` : r.ok ? "ok" : "wrong"}, ` +
         `${r.usage!.turns} turns, $${r.usage!.costUsd.toFixed(4)}, total $${runner.spentUsd.toFixed(4)}`),
   });
-  if (!complete) log(`Budget: stopped after ${rows.length} of ${planned} runs. Spent $${runner.spentUsd.toFixed(4)} of $${o.budgetUsd}.`);
+  if (runner.keyRejected) log("Stopped: the API rejected the key (401 or 403). Check ANTHROPIC_API_KEY.");
+  else if (!complete) log(`Budget: stopped after ${rows.length} of ${planned} runs. Spent $${runner.spentUsd.toFixed(4)} of $${o.budgetUsd}.`);
   const git = (...args: string[]) => {
     try {
       return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -258,7 +260,8 @@ export async function runModelBench(o: ModelBenchOptions) {
     runsPerCell: o.runs,
     plannedRuns: planned,
     completedRuns: rows.length,
-    stoppedByBudget: !complete,
+    stoppedByBudget: !complete && !runner.keyRejected,
+    stoppedByRejectedKey: runner.keyRejected,
     mirrorBackfill: setup.mirror,
     rows,
   };

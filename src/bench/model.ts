@@ -60,7 +60,7 @@ export function createModelRunner(opts: ModelRunnerOptions) {
   // Every line and error that leaves this file goes through redact, so the key can never show up.
   const redact = (s: string) => s.split(opts.apiKey).join("[redacted]");
   const log = (line: string) => (opts.log ?? ((l: string) => console.error(l)))(redact(line));
-  const totals = { spentUsd: 0, maxRunUsd: 0 };
+  const totals = { spentUsd: 0, maxRunUsd: 0, keyRejected: false };
 
   /** One model call. Retries transport errors, 429 and 5xx with backoff. Anything else throws. */
   async function callApi(body: unknown, usage: ModelUsage): Promise<any> {
@@ -81,6 +81,7 @@ export function createModelRunner(opts: ModelRunnerOptions) {
         });
         if (res.ok) return await res.json();
         const text = (await res.text()).slice(0, 500);
+        if (res.status === 401 || res.status === 403) totals.keyRejected = true;
         if (res.status !== 429 && res.status < 500) throw new Fatal(`API error ${res.status}: ${text}`);
         reason = `HTTP ${res.status}`;
         const after = Number(res.headers.get("retry-after"));
@@ -170,6 +171,8 @@ export function createModelRunner(opts: ModelRunnerOptions) {
     get spentUsd() { return totals.spentUsd; },
     /** The most one run has cost so far. Used to guess whether the next run fits in the budget. */
     get maxRunUsd() { return totals.maxRunUsd; },
+    /** The API answered 401 or 403. Every later run would fail the same way, so the bench stops. */
+    get keyRejected() { return totals.keyRejected; },
   };
 }
 

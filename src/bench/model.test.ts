@@ -192,3 +192,17 @@ test("the API key never shows up in logs, errors, the table or the results file"
   for (const out of outputs) assert.ok(!out.includes(KEY), `key leaked into: ${out.slice(0, 200)}`);
   assert.ok(outputs[1]!.includes("[redacted]"));
 });
+
+test("a rejected key (401) stops the bench after the first run", async () => {
+  const { f, bodies } = fakeFetch(() => ({ status: 401, text: '{"error":"invalid x-api-key"}' }));
+  const logs: string[] = [];
+  const { result } = await runModelBench({
+    runs: 2, model: DEFAULT_SETTINGS.model, budgetUsd: 10, tasks: TASKS.slice(0, 2), strategies: STRATEGIES,
+    apiKey: KEY, fetch: f, sleep: noSleep, log: (l) => logs.push(l), outDir: mkdtempSync(join(tmpdir(), "bench-")),
+  });
+  assert.equal(bodies.length, 1);
+  assert.equal(result.completedRuns, 1);
+  assert.equal(result.stoppedByRejectedKey, true);
+  assert.equal(result.stoppedByBudget, false);
+  assert.ok(logs.some((l) => /rejected the key/.test(l)));
+});
