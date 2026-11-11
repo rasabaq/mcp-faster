@@ -66,7 +66,10 @@ async function connect(writeChannels: string[]) {
 
 test("list_tickets returns open tickets with threads and links in one call", async () => {
   const s = await connect([]);
-  assert.deepEqual((await s.client.listTools()).tools.map((t) => t.name), ["list_tickets", "resolve_ticket"]);
+  const tools = (await s.client.listTools()).tools;
+  assert.deepEqual(tools.map((t) => t.name), ["list_tickets", "resolve_ticket"]);
+  // Both tools ask Claude Code to load them upfront, so no search turn is needed.
+  assert.ok(tools.every((t) => t._meta?.["anthropic/alwaysLoad"] === true));
 
   const out = JSON.parse((await s.call("list_tickets", { channel: "#test-tickets" })).text);
   assert.equal(out.channel, CHANNEL);

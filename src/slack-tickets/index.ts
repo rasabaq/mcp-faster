@@ -92,7 +92,20 @@ export function createServer(opts: Options): McpServer {
     ...(isError ? { isError: true } : {}),
   });
 
-  const server = new McpServer({ name: "slack-tickets", version: "0.0.0" });
+  const server = new McpServer(
+    { name: "slack-tickets", version: "0.0.0" },
+    {
+      // Claude Code shows this note at the start of a session. In tests the model searched for
+      // other Slack tools first, even with these two already loaded. That costs a turn.
+      instructions:
+        "For tickets in a Slack channel, call list_tickets and resolve_ticket directly. " +
+        "Both tools are already loaded, so do not search for tools first. " +
+        "list_tickets returns each open ticket with its thread, so no other Slack read is needed.",
+    },
+  );
+  // Claude Code hides MCP tools behind a search step by default, which costs one model turn per session.
+  // This key tells it to load a tool upfront. With two small tools that is cheaper than searching.
+  const upfront = { "anthropic/alwaysLoad": true };
 
   server.registerTool(
     "list_tickets",
@@ -103,6 +116,7 @@ export function createServer(opts: Options): McpServer {
         "Keep the ts of a ticket: resolve_ticket needs it.",
       inputSchema: { channel: z.string().describe('Channel id (like C0123ABCD) or channel name (like "support").') },
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: upfront,
     },
     async ({ channel }) => {
       const id = await channelId(channel);
@@ -158,6 +172,7 @@ export function createServer(opts: Options): McpServer {
         reply: z.string().min(1).describe("What was done, in one or two short sentences. People in the channel read this."),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      _meta: upfront,
     },
     async ({ channel, ts, reply }) => {
       const id = await channelId(channel);
