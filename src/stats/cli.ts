@@ -1,7 +1,7 @@
 // mcp-faster stats: one table of what each MCP server and tool costs you,
 // built from Claude Code's MCP logs and session transcripts.
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { defaultLogsDir, readLogs, serverKey, type ServerLog } from "./logs.ts";
 import { readToolCalls, splitName, type ReadCounts } from "../transcripts.ts";
@@ -62,7 +62,7 @@ export interface Report {
   servers: ReturnType<typeof serverRow>[];
 }
 
-function serverRow(name: string, log: ServerLog | undefined, tools: Map<string, ToolAcc>, calledSessions: Set<string>) {
+function serverRow(name: string, log: ServerLog | undefined, tools: Map<string, ToolAcc>, calledSessions: Set<string>, usedIn: Set<string>) {
   const toolRows = [...tools].map(([tool, t]) => {
     const withResult = t.calls - t.noResult;
     return {
@@ -91,6 +91,9 @@ function serverRow(name: string, log: ServerLog | undefined, tools: Map<string, 
     server: name,
     sessions: connected.size,
     idleSessions: [...connected].filter((s) => !called.has(s)).length,
+    /** Project folders where it connected, and the ones where it was called at least once. */
+    projects: log?.connectedIn.size ?? 0,
+    usedIn: [...new Set([...usedIn, ...(log?.usedIn ?? [])])].sort(),
     connectMs: p5090(connectMs),
     connectFailures: log?.failures ?? 0,
     drops: log?.drops ?? 0,
@@ -111,6 +114,7 @@ export async function buildReport(opts: { logsDir: string; transcriptsDir: strin
   const known = [...logs.keys()];
   const tools = new Map<string, Map<string, ToolAcc>>();
   const calledSessions = new Map<string, Set<string>>();
+  const usedIn = new Map<string, Set<string>>();
   let gapTimed = 0;
   let noResult = 0;
   let images = 0;
@@ -127,6 +131,9 @@ export async function buildReport(opts: { logsDir: string; transcriptsDir: strin
     const sessions = calledSessions.get(server) ?? new Set<string>();
     calledSessions.set(server, sessions);
     sessions.add(call.sessionId);
+    // The first folder under the transcripts folder is the project.
+    const project = relative(opts.transcriptsDir, call.file).split(sep)[0]!;
+    usedIn.set(server, (usedIn.get(server) ?? new Set()).add(project));
     t.calls++;
     if (call.end === undefined) {
       t.noResult++;
@@ -160,7 +167,7 @@ export async function buildReport(opts: { logsDir: string; transcriptsDir: strin
 
   const names = new Set([...logs.keys(), ...tools.keys()]);
   const servers = [...names]
-    .map((n) => serverRow(n, logs.get(n), tools.get(n) ?? new Map(), calledSessions.get(n) ?? new Set()))
+    .map((n) => serverRow(n, logs.get(n), tools.get(n) ?? new Map(), calledSessions.get(n) ?? new Set(), usedIn.get(n) ?? new Set()))
     .filter((s) => s.sessions || s.connectFailures || s.drops || s.calls)
     .sort((a, b) => b.totalMs - a.totalMs || b.totalTokens - a.totalTokens);
   return {
@@ -196,6 +203,28 @@ const pct = (v: number | undefined) => (v === undefined ? "-" : `${Math.round(v 
 const pair = (p: { p50?: number; p90?: number }, f: (v: number | undefined) => string) =>
   p.p50 === undefined ? "-" : `${f(p.p50)} / ${f(p.p90)}`;
 
+/**
+ * Servers that connect in many sessions and are called in almost none of them.
+ * Each one costs a connect in every session. Turning it off per project is the cheapest speed-up.
+ */
+export function turnOff(servers: Pick<Report["servers"][number], "server" | "sessions" | "idleSessions" | "usedIn">[]): string[] {
+  // ponytail: fixed cut-offs (5 sessions, 95% idle). Make them flags if people ask.
+  const idle = servers.filter((s) => s.sessions >= 5 && s.idleSessions / s.sessions >= 0.95);
+  if (!idle.length) return [];
+  const lines = ["", "WHAT TO TURN OFF"];
+  for (const s of idle) {
+    const used = s.sessions - s.idleSessions;
+    const where = s.usedIn.length ? ` Called only in: ${s.usedIn.slice(0, 3).join(", ")}${s.usedIn.length > 3 ? ` and ${s.usedIn.length - 3} more` : ""}.` : "";
+    lines.push(`  ${s.server}: connected in ${s.sessions} sessions, ${used ? `called in ${used}` : "never called"}.${where}`);
+  }
+  lines.push(
+    "How: start a session in a project where you do not need the server, run /mcp, and switch it off. Claude Code saves that per project.",
+    'For claude.ai connectors (names that start with claude-ai-) you can switch all of them off for one project:',
+    '  put "disableClaudeAiConnectors": true in <project>/.claude/settings.local.json.',
+  );
+  return lines;
+}
+
 export function renderTable(r: Report): string {
   const head = ["SERVER / TOOL", "SESS", "IDLE", "CONNECT p50/p90", "FAIL", "DROP", "CALLS", "ERR", "TIME p50/p90", "SRC", "RESULT chars p50/p90", "~TOKENS p50/p90", "TOTAL TIME", "TOTAL ~TOK"];
   const rows: string[][] = [head];
@@ -220,7 +249,7 @@ export function renderTable(r: Report): string {
     `TOTAL TIME is connect time plus call time. Servers connect in parallel, so this is cost, not wait.`,
     r.noResult ? `${r.noResult} calls had no result (interrupted). They count as calls, not in time, size or errors.` : "",
   ];
-  return [...lines, ...notes.filter((n, i) => i === 0 || n)].join("\n");
+  return [...lines, ...notes.filter((n, i) => i === 0 || n), ...turnOff(r.servers)].join("\n");
 }
 
 export async function main(argv: string[]): Promise<void> {

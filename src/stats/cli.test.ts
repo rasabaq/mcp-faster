@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { buildReport, main, percentile, renderTable, splitTool } from "./cli.ts";
+import { buildReport, main, percentile, renderTable, splitTool, turnOff } from "./cli.ts";
 import { parseDuration } from "./logs.ts";
 
 test("percentile uses nearest rank", () => {
@@ -87,6 +87,8 @@ test("buildReport joins logs and transcripts", async () => {
   assert.equal(s.server, "my-shop");
   assert.equal(s.sessions, 3); // s1, s2, old
   assert.equal(s.idleSessions, 2); // s2, old
+  assert.equal(s.projects, 1);
+  assert.deepEqual(s.usedIn, ["-tmp-x"]);
   assert.deepEqual(s.connectMs, { p50: 300, p90: 9000 });
   assert.equal(s.connectFailures, 2);
   assert.equal(s.drops, 1);
@@ -156,4 +158,19 @@ test("two calls of one tool at the same time each get their own log line", async
   const r = await buildReport({ logsDir: join(root, "logs"), transcriptsDir: join(root, "projects") });
   assert.equal(r.gapTimed, 0);
   assert.deepEqual(r.servers[0]!.tools[0]!.durationMs, { p50: 2000, p90: 9000 });
+});
+
+test("turnOff lists servers that connect a lot and are almost never called", () => {
+  const out = turnOff([
+    { server: "never", sessions: 40, idleSessions: 40, usedIn: [] },
+    { server: "rare", sessions: 100, idleSessions: 97, usedIn: ["proj-a", "proj-b"] },
+    { server: "busy", sessions: 50, idleSessions: 10, usedIn: ["proj-a"] },
+    { server: "too-new", sessions: 3, idleSessions: 3, usedIn: [] },
+  ]).join("\n");
+  assert.match(out, /never: connected in 40 sessions, never called\./);
+  assert.match(out, /rare: connected in 100 sessions, called in 3\. Called only in: proj-a, proj-b\./);
+  assert.doesNotMatch(out, /busy|too-new/);
+  assert.match(out, /\/mcp/);
+  // Nothing to say when every server earns its place.
+  assert.deepEqual(turnOff([{ server: "busy", sessions: 50, idleSessions: 10, usedIn: [] }]), []);
 });

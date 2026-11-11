@@ -28,6 +28,9 @@ export interface ServerLog {
   drops: number;
   connectedSessions: Set<string>;
   calledSessions: Set<string>;
+  /** Project folders (as named in the logs folder) where the server connected, and where it was called. */
+  connectedIn: Set<string>;
+  usedIn: Set<string>;
   /** Key: `${sessionId}|${tool}`. Sorted by ts once reading is done. */
   completions: Map<string, Completion[]>;
 }
@@ -73,6 +76,8 @@ function emptyServer(): ServerLog {
     drops: 0,
     connectedSessions: new Set(),
     calledSessions: new Set(),
+    connectedIn: new Set(),
+    usedIn: new Set(),
     completions: new Map(),
   };
 }
@@ -126,6 +131,7 @@ export async function readLogs(
           if ((m = CONNECTED.exec(text))) {
             s.connectMs.push(Number(m[1]));
             s.connectedSessions.add(session);
+            s.connectedIn.add(project);
           } else if ((m = FAILED.exec(text))) {
             s.failures++;
             s.failedMs += Number(m[1]);
@@ -135,6 +141,7 @@ export async function readLogs(
             s.drops++;
           } else if (text.startsWith("Calling MCP tool: ")) {
             s.calledSessions.add(session);
+            s.usedIn.add(project);
           } else if ((m = TOOL_DONE.exec(text))) {
             const ms = parseDuration(m[2]!);
             if (ms === undefined) continue;
