@@ -11,6 +11,14 @@
     "agents"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rasabaq/mcp-faster.git"
+  },
+  "homepage": "https://github.com/rasabaq/mcp-faster#readme",
+  "bugs": {
+    "url": "https://github.com/rasabaq/mcp-faster/issues"
+  },
   "type": "module",
   "bin": {
     "mcp-faster": "dist/cli.js"
