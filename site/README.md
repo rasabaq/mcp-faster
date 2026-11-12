@@ -40,7 +40,7 @@ If the script warns, reread them in `index.html`:
 ## Publish it
 
 `.github/workflows/pages.yml` publishes the `site/` folder to GitHub Pages each time a push to `main` changes it.
-The page is at <https://rasabaq.github.io/mcp-faster/>. To publish again without a change, run the workflow
+The page is at <https://ramonsanchez.xyz/mcp-faster/>. GitHub serves it on that domain because the account's user site has it as a custom domain. To publish again without a change, run the workflow
 by hand from the **Actions** tab, or with `gh workflow run pages.yml`.
 
 ## Take a screenshot
