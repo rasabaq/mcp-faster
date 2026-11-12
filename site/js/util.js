@@ -20,15 +20,11 @@ export const plural = (n, word) => fmt(n) + " " + word + (n === 1 ? "" : "s");
 export const pct = (share, digits) => (share * 100).toFixed(digits ?? (share > 0 && share < 0.1 ? 1 : 0));
 
 /* ---------- URL flags ----------
-   Preview links, used for screenshots, because a headless browser does not paint after a scroll:
-   ?p=1.5 freezes the story at that point, ?at=servers opens at a section,
-   ?open=Slack opens a drawer, ?menu opens the mobile menu. */
-export const query = new URLSearchParams(location.search);
-const point = query.get("p");
-/** The story point from ?p=, or null when the story follows the scroll. */
-export const forced = point != null && point !== "" ? clamp(+point, 0, 3) : null;
+   ?still makes the page stand still for screenshots: no loader and no animation.
+   Headless browsers do not run animations reliably, so a still page is what they can capture. */
+const query = new URLSearchParams(location.search);
 /** True when a preview link asks for a still page: nothing animates. */
-export const FROZEN = forced != null || query.has("at") || query.has("open");
+export const FROZEN = query.has("still");
 export const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Canvas pixels per CSS pixel. Capped at 2 to keep the canvases cheap. */
