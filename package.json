@@ -38,7 +38,9 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "prepack": "npm run build",
     "test": "node --test \"src/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "site:data": "node src/site/cli.ts",
+    "site": "python3 -m http.server 4173 --directory site"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.4.0",

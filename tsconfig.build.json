@@ -7,5 +7,5 @@
     "rewriteRelativeImportExtensions": true,
     "declaration": true
   },
-  "exclude": ["src/**/*.test.ts", "src/proxy/fixtures"]
+  "exclude": ["src/**/*.test.ts", "src/proxy/fixtures", "src/site"]
 }
