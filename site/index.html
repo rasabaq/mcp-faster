@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mcp-faster</title>
+<meta name="description" content="mcp-faster makes MCP servers cheaper and faster for AI agents. See what each server costs, how healthy it is, and which way of giving tools to a model wins.">
+<meta name="theme-color" content="#1b1b1b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/><path d="M10.5 3.5v-.4A1.6 1.6 0 008.9 1.5H3.1A1.6 1.6 0 001.5 3.1v5.8a1.6 1.6 0 001.6 1.6h.4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8.5 3.2 3L13 4.5"/></symbol>
+  <symbol id="i-gh" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.75"/><path d="m10.5 10.5 3.5 3.5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 6 4 4 4-4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2.5 5h11M2.5 11h11"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M4 1.5h5L12.5 5v9.5h-8.5z"/><path d="M9 1.5V5h3.5"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 3.5h12v8H6l-3 2.5v-2.5H2z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.5" r="2.75"/><path d="M2.5 14c.6-2.7 2.8-4 5.5-4s4.9 1.3 5.5 4"/></symbol>
+  <symbol id="i-merge" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3v3a4 4 0 0 0 4 4h6M3 13V10M10 7l3 3-3 3"/></symbol>
+  <symbol id="i-db" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><ellipse cx="8" cy="3.8" rx="5" ry="2"/><path d="M3 3.8v8.4c0 1.1 2.2 2 5 2s5-.9 5-2V3.8M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/></symbol>
+  <symbol id="i-shrink" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h12M4 8h8M6 11h4"/></symbol>
+  <symbol id="logo" viewBox="0 0 20 20"><rect x="1" y="1" width="5" height="5" rx="1.3" fill="#fff0d4"/><rect x="7.5" y="1" width="5" height="5" rx="1.3" fill="#ffb27e"/><rect x="14" y="1" width="5" height="5" rx="1.3" fill="#ff5a4f"/><rect x="1" y="7.5" width="5" height="5" rx="1.3" fill="#ffb27e"/><rect x="7.5" y="7.5" width="5" height="5" rx="1.3" fill="#ff3e58"/><rect x="14" y="7.5" width="5" height="5" rx="1.3" fill="#c434a8"/><rect x="1" y="14" width="5" height="5" rx="1.3" fill="#ff3e58"/><rect x="7.5" y="14" width="5" height="5" rx="1.3" fill="#c434a8"/><rect x="14" y="14" width="5" height="5" rx="1.3" fill="#3a4eec"/></symbol>
+</svg>
+<a class="skiplink" href="#servers" data-go="servers">Skip to the servers</a>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" data-go="top" aria-label="mcp-faster, back to top"><svg aria-hidden="true"><use href="#logo"/></svg>mcp-faster</a>
+    <nav class="links" aria-label="Sections">
+      <a href="#story" data-go="story">Story</a>
+      <a href="#features" data-go="features">Features</a>
+      <a href="#servers" data-go="servers">Servers</a>
+      <a href="#bench" data-go="bench">Benchmark</a>
+      <a href="#faq" data-go="faq">FAQ</a>
+    </nav>
+    <div class="nav-r">
+      <a class="btn btn-line gh" href="https://github.com/rasabaq/mcp-faster" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-gh"/></svg>GitHub</a>
+      <a class="btn btn-light" href="#start" data-go="start">Get started</a>
+      <button class="btn btn-line menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu"><svg aria-hidden="true"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+  <nav class="menu" id="menu" aria-label="Menu">
+    <a href="#story" data-go="story">Story</a>
+    <a href="#features" data-go="features">Features</a>
+    <a href="#servers" data-go="servers">Servers</a>
+    <a href="#score" data-go="score">Heat score</a>
+    <a href="#bench" data-go="bench">Benchmark</a>
+    <a href="#faq" data-go="faq">FAQ</a>
+    <a href="https://github.com/rasabaq/mcp-faster" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+</header>
+
+<main id="main">
+<section class="hero" id="top" aria-labelledby="h1">
+  <div class="wrap hero-in">
+    <a class="badge" href="#bench" data-go="bench"><span class="new">New</span><span><b>Real-model benchmark</b><span class="hide-xs">: <span data-v="runs"></span> runs for <span data-v="benchCost"></span></span></span><svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    <h1 id="h1">Make your MCP servers <span class="hot-text">cheaper and faster.</span></h1>
+    <p class="lead">mcp-faster reads your Claude Code logs and shows what each MCP server costs you. Then it tests four ways to give tools to a model, and runs the best one as a proxy.</p>
+    <div class="cta-row">
+      <button class="btn btn-light btn-lg cpy" type="button" data-copy="npx mcp-faster stats" aria-label="Copy the command npx mcp-faster stats"><span class="ps" aria-hidden="true">$</span><code>npx mcp-faster stats</code><span class="seg"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span class="lbl">Copy</span></span></button>
+      <a class="btn btn-dark btn-lg" href="https://github.com/rasabaq/mcp-faster" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-gh"/></svg>View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<section class="story" id="story" aria-label="The story in four chapters">
+  <div class="stage" id="stage">
+    <div class="appwin" id="win">
+      <div class="win-bar">
+        <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+        <nav class="tabs" aria-label="Chapters">
+          <button type="button" data-go="0" aria-label="Chapter 1: Cost"><b>01</b><span>Cost</span></button>
+          <button type="button" data-go="1" aria-label="Chapter 2: Health"><b>02</b><span>Health</span></button>
+          <button type="button" data-go="2" aria-label="Chapter 3: Strategies"><b>03</b><span>Strategies</span></button>
+          <button type="button" data-go="3" aria-label="Chapter 4: Proxy"><b>04</b><span>Proxy</span></button>
+        </nav>
+        <code class="win-cmd" id="wcmd" aria-hidden="true"><span>$</span> mcp-faster stats</code>
+        <button class="skip" type="button" data-go="features" aria-label="Skip the story"><span class="t">Skip the story</span><svg aria-hidden="true"><use href="#i-down"/></svg></button>
+      </div>
+      <div class="win-body" id="wbody">
+        <canvas id="cv" aria-hidden="true"></canvas>
+        <div class="legend" aria-hidden="true"></div>
+        <div class="legend" aria-hidden="true"></div>
+        <div class="legend" aria-hidden="true"></div>
+        <div class="legend" aria-hidden="true"></div>
+        <div class="chaps" id="chaps">
+          <article class="chap" aria-labelledby="c1">
+            <div class="chap-head"><span class="chap-no">01</span><span class="chap-kick">Cost</span></div>
+            <h2 id="c1">What MCP costs you</h2>
+            <p>Every tool result lands in your agent's context. Across <b><span data-v="servers"></span> servers</b> and <b><span data-v="sessions"></span> sessions</b>, this is the pile they added.<span class="lg"> The hottest servers sit on top.</span></p>
+            <dl class="stats">
+              <div><dt>of tool results</dt><dd><span data-v="tokensShort"></span><small>tok</small></dd></div>
+              <div><dt>connecting and calling</dt><dd><span data-v="hours"></span><small>h</small></dd></div>
+              <div><dt>tool calls made</dt><dd data-v="calls"></dd></div>
+            </dl>
+          </article>
+          <article class="chap" aria-labelledby="c2">
+            <div class="chap-head"><span class="chap-no">02</span><span class="chap-kick">Health</span></div>
+            <h2 id="c2">Are they up, and used?</h2>
+            <p>Most servers connect, then sit idle, so they run cold.<span data-v="breaking"></span></p>
+            <dl class="stats">
+              <div><dt>of sessions never called a tool</dt><dd><span data-v="idleShare"></span><small>%</small></dd></div>
+              <div><dt>dropped connections</dt><dd data-v="drops"></dd></div>
+              <div><dt>connects that worked</dt><dd><span data-v="connectShare"></span><small>%</small></dd></div>
+            </dl>
+          </article>
+          <article class="chap" aria-labelledby="c3">
+            <div class="chap-head"><span class="chap-no">03</span><span class="chap-kick">Strategies</span></div>
+            <h2 id="c3">Four ways to give tools to a model</h2>
+            <p>We ran <span data-v="tasks"></span> issue-tracker tasks, <span data-v="runsPerTask"></span> times each, for each way, with a real model.<span class="lg"> Each cluster is the tool text the model reads before its first step.</span></p>
+            <dl class="stats">
+              <div><dt>read first, all upfront</dt><dd><span data-v="upfrontDef"></span><small>tok</small></dd></div>
+              <div><dt>read first, with search</dt><dd><span data-v="searchDef"></span><small>tok</small></dd></div>
+              <div><dt>right answers, by way</dt><dd><span data-v="okRange"></span><small>/<span data-v="runsPerWay"></span></small></dd></div>
+            </dl>
+          </article>
+          <article class="chap" aria-labelledby="c4">
+            <div class="chap-head"><span class="chap-no">04</span><span class="chap-kick">Proxy</span></div>
+            <h2 id="c4">The local mirror runs hottest</h2>
+            <p class="m-hide">mcp-faster measures the waste, tests the ways, and runs the best one. The mirror got <b>every answer right</b> for <span data-v="costShare"></span>% of the cost.</p>
+            <div class="cmp" role="group" aria-label="Local mirror compared with all upfront">
+              <div class="cmp-head"><h3>Mirror vs upfront</h3><span class="best" data-best="mirror">Best</span></div>
+              <table>
+                <thead><tr><th scope="col"><span class="sr">Measure</span></th><th scope="col" class="m">Mirror</th><th scope="col">Upfront</th></tr></thead>
+                <tbody>
+                  <tr><td>Right answers</td><td class="m"><span data-v="mirrorOk"></span>/<span data-v="mirrorRuns"></span><span class="dl" data-v="okGain"></span></td><td><span data-v="upfrontOk"></span>/<span data-v="upfrontRuns"></span></td></tr>
+                  <tr><td>Median time</td><td class="m"><span data-v="mirrorSeconds"></span> s<span class="dl"><span data-v="secondsSaved"></span> s faster</span></td><td><span data-v="upfrontSeconds"></span> s</td></tr>
+                  <tr><td>Cost, <span data-v="runsPerWay"></span> runs</td><td class="m"><span data-v="mirrorCost"></span><span class="dl"><span data-v="costCut"></span>% less</span></td><td data-v="upfrontCost"></td></tr>
+                  <tr><td>Result size</td><td class="m"><span data-v="mirrorResult"></span> tok<span class="dl"><span data-v="sizeRatio"></span>× smaller</span></td><td><span data-v="upfrontResult"></span> tok</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+        <div class="hint" id="hint" aria-hidden="true">Scroll<i></i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="features" aria-labelledby="fh">
+  <div class="wrap">
+    <div class="sec-l">
+      <h2 class="sec-t" id="fh">What mcp-faster does</h2>
+      <p class="sec-s">Four commands. Measure what your servers cost, test the ways to give tools to a model, find calls that come in chains, and run the best setup.</p>
+    </div>
+    <div class="bento" id="bento">
+      <article class="card c-stats">
+        <div class="mock" aria-hidden="true">
+          <div class="mwin">
+            <div class="mwin-h"><span><b>mcp-faster stats</b></span><span class="xs"><span data-v="servers"></span> servers · <span data-v="calls"></span> calls</span></div>
+            <div class="mrow th"><span>Server</span><span>Calls</span><span class="xs">Result tok</span><span>Heat</span></div>
+            <div id="mrows"></div>
+            <div class="mfoot"><span class="k"><span data-v="idleShare"></span>%</span> <span>of sessions never called a tool</span><span class="caret"></span></div>
+          </div>
+        </div>
+        <div class="txt">
+          <h3>See what each server costs <code>stats</code></h3>
+          <p>Reads your Claude Code logs. Shows sessions, idle time, drops, failed connects, tool errors and tokens for every MCP server.</p>
+          <div class="cmdline"><span class="ps" aria-hidden="true">$</span><code><span>npx mcp-faster stats</span></code><button class="cbtn" type="button" data-copy="npx mcp-faster stats" aria-label="Copy npx mcp-faster stats"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span class="lbl">Copy</span></button></div>
+        </div>
+      </article>
+      <article class="card c-bench">
+        <div class="mock" aria-hidden="true">
+          <div class="bars" id="mbars"><div class="bh"><span>Cost of <span data-v="runsPerWay"></span> runs</span><span>lower is better</span></div></div>
+        </div>
+        <div class="txt">
+          <h3>Test four ways <code>bench</code></h3>
+          <p>Runs the same tasks all upfront, with tool search, in code mode and on a local mirror.</p>
+          <div class="cmdline"><span class="ps" aria-hidden="true">$</span><code><span>npx mcp-faster bench</span></code><button class="cbtn" type="button" data-copy="npx mcp-faster bench" aria-label="Copy npx mcp-faster bench"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span class="lbl">Copy</span></button></div>
+        </div>
+      </article>
+      <article class="card c-local">
+        <canvas id="localCv" aria-hidden="true"></canvas>
+        <div class="mock" aria-hidden="true">
+          <div class="vault">
+            <div class="vault-h">On this computer<svg><use href="#i-lock"/></svg></div>
+            <ul>
+              <li><svg><use href="#i-file"/></svg>Log files<b data-v="logFiles"></b></li>
+              <li><svg><use href="#i-chat"/></svg>Chat records<b data-v="transcriptFiles"></b></li>
+              <li><svg><use href="#i-user"/></svg>Account<b>none</b></li>
+            </ul>
+          </div>
+        </div>
+        <div class="txt">
+          <h3>Runs on your machine</h3>
+          <p>It reads the logs already on your computer. Servers with private names show up as “Custom server”.</p>
+        </div>
+      </article>
+      <article class="card c-proxy">
+        <div class="mock" aria-hidden="true">
+          <div class="flow"><span>agent</span><i></i><span class="p">mcp-faster</span><i></i><span>your servers</span></div>
+          <div class="layers">
+            <div class="layer"><span class="ic"><svg><use href="#i-merge"/></svg></span><span><b>Consolidate</b><small>Merge tools that always run together</small></span><span class="tog"></span></div>
+            <div class="layer"><span class="ic"><svg><use href="#i-db"/></svg></span><span><b>Cache</b><small>Reuse results the agent already got</small></span><span class="tog"></span></div>
+            <div class="layer"><span class="ic"><svg><use href="#i-shrink"/></svg></span><span><b>Compact</b><small>Send back smaller results</small></span><span class="tog"></span></div>
+          </div>
+        </div>
+        <div class="txt">
+          <h3>Run the best setup <code>proxy</code></h3>
+          <p>Sits in front of any server with three layers. It can also start a server only when the first call needs it.</p>
+          <div class="cmdline"><span class="ps" aria-hidden="true">$</span><code><span>npx mcp-faster proxy</span> <span>--config proxy.json</span></code><button class="cbtn" type="button" data-copy="npx mcp-faster proxy --config proxy.json" aria-label="Copy npx mcp-faster proxy --config proxy.json"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span class="lbl">Copy</span></button></div>
+        </div>
+      </article>
+      <article class="card c-mine">
+        <div class="mock" aria-hidden="true">
+          <div class="chain">
+            <div class="row"><span class="tool"><i></i>list_tickets</span><span class="ex">always followed by</span></div>
+            <span class="link"></span>
+            <div class="row"><span class="tool"><i></i>resolve_ticket</span></div>
+            <span class="link"></span>
+            <div class="row"><span class="tool new"><i></i>list_and_resolve</span><span class="ex">one tool (example)</span></div>
+          </div>
+        </div>
+        <div class="txt">
+          <h3>Find chains <code>mine</code></h3>
+          <p>Finds tool calls that always come in a chain, and proposes one tool for each chain.</p>
+          <div class="cmdline"><span class="ps" aria-hidden="true">$</span><code><span>npx mcp-faster mine</span></code><button class="cbtn" type="button" data-copy="npx mcp-faster mine" aria-label="Copy npx mcp-faster mine"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span class="lbl">Copy</span></button></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="servers" aria-labelledby="sh">
+  <div class="wrap sec-c">
+    <h2 class="sec-t" id="sh">Every server, by heat</h2>
+    <p class="sec-s">One tile per MCP server in our logs. Hot means it connects, stays up and gets used. Cold means it fails, drops or sits idle. Open a tile to see why.</p>
+    <div class="scale" aria-hidden="true"><span>cold</span><i></i><span>hot</span></div>
+    <dl class="kgrid" id="kgrid"></dl>
+    <div class="toolbar">
+      <div class="chips" id="chips" role="group" aria-label="Filter by health"></div>
+      <div class="tb-r">
+      <label class="field s"><span class="sr">Search servers</span><svg aria-hidden="true"><use href="#i-search"/></svg><input class="search" id="q" type="search" placeholder="Search servers" autocomplete="off" spellcheck="false"></label>
+      <label class="field"><span class="sr">Sort servers</span>
+        <select class="select" id="sort">
+          <option value="heat">Sort: heat</option>
+          <option value="sessions">Sort: sessions</option>
+          <option value="calls">Sort: tool calls</option>
+          <option value="failed">Sort: failed connects</option>
+          <option value="drops">Sort: drops</option>
+          <option value="tokens">Sort: result tokens</option>
+          <option value="name">Sort: name</option>
+        </select><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></label>
+      </div>
+    </div>
+    <p class="count" id="count" aria-live="polite"></p>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty">
+      <h3>No servers match</h3>
+      <p id="emptyTxt">Try another name, or clear the filters.</p>
+      <button class="btn btn-line" type="button" id="clear">Clear filters</button>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="score" aria-labelledby="sch">
+  <div class="wrap score">
+    <div class="score-l">
+      <h2 class="sec-t" id="sch">How the heat score works</h2>
+      <p class="sec-s">Four checks, each from 0 to 100%. We multiply them. One weak part pulls the whole score down, on purpose: a server that never connects is not healthy, however fast it is.</p>
+      <p class="formula">heat = <b>connects</b> × <b>stays up</b> × <b>gets used</b> × <b>few errors</b></p>
+      <ol class="steps" id="steps">
+        <li><button type="button" data-card="0"><b>01</b>Connects</button></li>
+        <li><button type="button" data-card="1"><b>02</b>Stays up</button></li>
+        <li><button type="button" data-card="2"><b>03</b>Gets used</button></li>
+        <li><button type="button" data-card="3"><b>04</b>Few errors</button></li>
+      </ol>
+    </div>
+    <div class="pcards" id="pcards"></div>
+  </div>
+</section>
+
+<section class="sec" id="bench" aria-labelledby="bh">
+  <div class="wrap sec-c">
+    <h2 class="sec-t" id="bh">Four ways to give tools to a model</h2>
+    <p class="sec-s">The same <span data-v="tasks"></span> issue-tracker tasks, <span data-v="runsPerTask"></span> runs each, on <span data-v="modelName"></span>. That is <span data-v="runs"></span> runs, and they cost <span data-v="benchCost"></span> in total. <code>mcp-faster bench</code> runs it for you.</p>
+    <div class="wins">
+      <div><b class="hot-text"><span data-v="costCut"></span>%</b><span>cheaper than loading every tool upfront</span></div>
+      <div><b><span data-v="sizeRatio"></span>×</b><span>smaller tool results</span></div>
+      <div><b><span data-v="secondsSaved"></span> s</b><span>faster per task, and <span data-v="mirrorOk"></span> of <span data-v="mirrorRuns"></span> right</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Results by way</h3><p>Local mirror compared with the other three.<span class="tbl-only"> Select a column to sort.</span></p></div>
+        <label class="msort">Sort by <select class="select" id="bnSort" aria-label="Sort ways by"></select></label>
+      </div>
+      <table class="tbl" id="tBench"></table>
+      <p class="panel-foot">Time, tokens and tool calls are medians over the <span data-v="runsPerWay"></span> runs of each way. Cost is the total for those <span data-v="runsPerWay"></span> runs. The mirror copies the data into a local database once before the tasks; that copy is not counted here.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="faq" aria-labelledby="qh">
+  <div class="wrap sec-c">
+    <h2 class="sec-t" id="qh">Questions</h2>
+    <div class="faq" id="faqList">
+      <details><summary><span>What does <code>mcp-faster stats</code> read?</span><span class="pm" aria-hidden="true"></span></summary><div class="ans"><p>The Claude Code logs and chat records already on your computer. For this page that was <span data-v="logFiles"></span> log files and <span data-v="transcriptFiles"></span> chat records from one machine.</p></div></details>
+      <details><summary><span>What is the heat score?</span><span class="pm" aria-hidden="true"></span></summary><div class="ans"><p>A score from 0 to 100 for each server: connects × stays up × gets used × few errors. Servers that only show up in chat records have no connect logs, so they count as connecting and staying up.</p></div></details>
+      <details><summary><span>What do the labels mean?</span><span class="pm" aria-hidden="true"></span></summary><div class="ans"><p>Each server gets one label: its biggest problem, checked in this order.</p><ul id="rules"></ul></div></details>
+      <details><summary><span>Which way should I use?</span><span class="pm" aria-hidden="true"></span></summary><div class="ans"><p>In our runs, the local mirror: <span data-v="mirrorOk"></span> of <span data-v="mirrorRuns"></span> right, <span data-v="mirrorSeconds"></span> s per task and <span data-v="mirrorCost"></span> for <span data-v="mirrorRuns"></span> runs. It needs a one-time copy of the data. Code mode came second on cost, at <span data-v="codeCost"></span>.</p></div></details>
+      <details><summary><span>What does the proxy do?</span><span class="pm" aria-hidden="true"></span></summary><div class="ans"><p>It sits between your agent and your servers. It has three layers: consolidate, cache and compact. It can also start a server only when the first call needs it. You set it up in <code>proxy.json</code>.</p></div></details>
+      <details><summary><span>What do I need to run it?</span><span class="pm" aria-hidden="true"></span></summary><div class="ans"><p>Node 24 or newer. <code>stats</code> and <code>mine</code> only read your logs. <code>bench</code> calls a real model, so it needs a model API key.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<section class="start" id="start" aria-labelledby="gh">
+  <div class="wrap sec-c">
+    <h2 class="sec-t" id="gh">See what your MCP servers cost you.</h2>
+    <p class="sec-s">One command. It reads your Claude Code logs and prints every server: sessions, drops, failed connects, tool errors and tokens.</p>
+    <div class="cta-row">
+      <button class="btn btn-light btn-lg cpy" type="button" data-copy="npx mcp-faster stats" aria-label="Copy the command npx mcp-faster stats"><span class="ps" aria-hidden="true">$</span><code>npx mcp-faster stats</code><span class="seg"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span class="lbl">Copy</span></span></button>
+      <a class="btn btn-dark btn-lg" href="https://github.com/rasabaq/mcp-faster#readme" target="_blank" rel="noopener">Read the docs<svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    </div>
+    <p class="req"><span>Node 24 or newer</span><span>MIT license</span><span>No account needed</span></p>
+  </div>
+  <div class="floor" aria-hidden="true"><canvas id="floorCv"></canvas></div>
+</section>
+</main>
+
+<footer class="foot" id="footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="#top" data-go="top"><svg aria-hidden="true"><use href="#logo"/></svg>mcp-faster</a>
+        <p class="tag">Cheaper, faster MCP servers for AI agents. Open source.</p>
+      </div>
+      <div>
+        <h2>Page</h2>
+        <ul>
+          <li><button type="button" data-go="story">Story</button></li>
+          <li><button type="button" data-go="features">Features</button></li>
+          <li><button type="button" data-go="servers">Servers</button></li>
+          <li><button type="button" data-go="score">Heat score</button></li>
+          <li><button type="button" data-go="bench">Benchmark</button></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Project</h2>
+        <ul>
+          <li><a href="https://github.com/rasabaq/mcp-faster" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/rasabaq/mcp-faster#readme" target="_blank" rel="noopener">Read me</a></li>
+          <li><a href="https://github.com/rasabaq/mcp-faster/issues" target="_blank" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/rasabaq/mcp-faster/blob/main/LICENSE" target="_blank" rel="noopener">MIT license</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>About the data</h2>
+        <p class="note">Usage numbers come from <code>mcp-faster stats</code> over our own Claude Code logs: <span data-v="servers"></span> servers, <span data-v="sessions"></span> sessions. Benchmark numbers come from <span data-v="runs"></span> runs of <code>mcp-faster bench</code> with <span data-v="modelName"></span>, <span data-v="benchCost"></span> in total. Servers with private names show as “Custom server”.</p>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 mcp-faster contributors · MIT license</span>
+      <span class="asof"><i></i><span>Data as of <span data-v="asOf"></span></span></span>
+    </div>
+  </div>
+</footer>
+
+<div id="layer">
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+    <div class="d-head">
+      <div class="d-grab"></div>
+      <div class="d-top"><span id="dPill"></span><button class="icon-btn" id="dClose" type="button" aria-label="Close"><svg aria-hidden="true"><use href="#i-x"/></svg></button></div>
+      <h3 id="dTitle"></h3>
+      <p class="d-hint" id="dHint"></p>
+    </div>
+    <div class="d-body" id="dBody"></div>
+    <div class="d-foot"><span id="dPos"></span><div><button class="icon-btn" id="dPrev" type="button" aria-label="Previous server"><svg aria-hidden="true"><use href="#i-left"/></svg></button><button class="icon-btn" id="dNext" type="button" aria-label="Next server"><svg aria-hidden="true"><use href="#i-right"/></svg></button></div></div>
+  </aside>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
