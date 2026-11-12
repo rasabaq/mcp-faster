@@ -37,6 +37,12 @@ If the script warns, reread them in `index.html`:
 - the "winner" row under "what it measured"
 - the FAQ answer "which way should I use?"
 
+## Publish it
+
+`.github/workflows/pages.yml` publishes the `site/` folder to GitHub Pages each time a push to `main` changes it.
+The page is at <https://rasabaq.github.io/mcp-faster/>. To publish again without a change, run the workflow
+by hand from the **Actions** tab, or with `gh workflow run pages.yml`.
+
 ## Take a screenshot
 
 Add `?still` to the address, for example <http://localhost:4173/?still>. A still page skips the orange loader,
